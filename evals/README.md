@@ -12,6 +12,16 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s evals -p 'test_*.py
 
 此命令在仓库根目录运行。覆盖实际同步后的非代码内容保留、幂等、空目录、中文路径、同名文件、完整依赖、暂存快照、循环方向和计量负对照。重复同一确定性用例只检验重复性,不增加独立场景数。人工预置的答案和 token 数仅用于测试评分器,不构成模型效果实测。
 
+Codex 适配专项回归(同样纳入上面的 discovery 与 CI):
+
+```bash
+python3 -B -m unittest discover -s evals -p 'test_codex_*.py' -v
+```
+
+覆盖独立技能的项目/个人/自定义目录安装、无写入预演、幂等、安全更新与冲突保护,以及 `AGENTS.override.md` 优先级、原有规则/行尾保留、规则文件符号链接保护和复制工具的独立执行。测试使用临时目录,不修改真实用户技能或调用模型;宿主技能发现与这些离线文件测试分开验证。
+
+原生 Codex hook 测试还覆盖配置合并与既有 hook 保留、补丁文件归属、异步 Bash 完成事件、Stop 自动补头/同步/语义回灌及重复提示抑制。自动计量单独检查会话身份、首次启动与恢复区间、缺失遥测、分页轮换和多次 Stop/SessionEnd 不重复累计。协议依据和宿主验证边界见 [Codex hooks](../references/codex-hooks.md)。
+
 README 中的实测数据由以下流程产生,本目录包含完整复现材料。
 
 ## 流程
