@@ -14,7 +14,13 @@
 
 A toolkit that turns the *GEB Fractal Documentation Protocol* into an everyday way of working with AI: a three-level fractal index (L1 project / L2 folder / L3 file header) plus a mandatory update loop and machine-verifiable isomorphism — built to fight project entropy in the age of AI-assisted coding, where code grows messy and docs always lag behind.
 
-Best experienced as a Claude Code skill, yet **model-agnostic by design**: Codex, Cursor, Windsurf, Cline (with DeepSeek or any model), Copilot, even web chat — one command plugs them all into the same protocol and the same hard constraints. See [Works with any tool, any model](#works-with-any-tool-any-model).
+Claude Code and Codex both support automatic maintenance through native hooks; Codex also supports a standalone skill and project rules. The same protocol works with Cursor, Windsurf, Cline, Copilot and web chat. See [Works with any tool, any model](#works-with-any-tool-any-model) for each integration and optional commit checks.
+
+## Native Codex hooks: automatic maintenance, model-written semantics
+
+`geb_install_codex.py --hooks` installs nine events: SessionStart, UserPromptSubmit, Pre/PostToolUse, Stop, SessionEnd, Interrupt and SubagentStart/SubagentStop. Once enabled and trusted through Codex's native review, routine development needs no manual sync, check or metering commands. Session start provides navigation, tool events track this session's changes, and Stop adds L3 headers, syncs machine fields and returns new semantic gaps to the model to finish. Subagents receive the same maintenance through their own lifecycle events, with metering bound independently to their logs. Unchanged gaps are raised once. Projects without the protocol are not initialized automatically.
+
+The current interface was checked against Codex CLI `0.159.0-alpha.3`, where `hooks` is stable and enabled by default; the obsolete `plugin_hooks` flag is unnecessary. Hooks run on the Codex host and cannot maintain remote files that host cannot access. Desktop and cloud support require separate verification. See [Install](#install) and the [hook reference](references/codex-hooks.md) for events, attribution boundaries and source references.
 
 ## v2.7: Claude Code hooks, model only for semantics
 
@@ -23,7 +29,7 @@ The first three-arm pilot showed the full Fugue workflow costing 44%–82% more 
 - **Only files the model wrote**: before the model uses an edit or write tool, a hook records the target file; around each shell command it compares uncommitted changes, so the files that command changed are recorded. Files brought in by git commands such as checkout, pull, merge or stash pop, files you edit yourself, and files written by another session in the same repository are not attributed. Files that are committed, reverted, or edited again by you between turns drop out. Session start adds only a one-line navigation hint to context.
 - **End of each turn**: only code files the session wrote, that still differ and are uncommitted, are handled. Nothing is written during a merge or rebase; files with conflicts or syntax errors, non-UTF-8 files, generated code and symlinks leaving the project are skipped one by one, keeping their existing machine fields in the ledgers. New files get an L3 header skeleton; dependencies and ledgers are synced incrementally by `geb_sync`; body-only edits are silent. Only semantic gaps (a new file's `[POS]`, a ledger duty, `[OUTPUT]` after an export change, a new directory's role) reach the model as one short prompt, and the same gap is raised once while its content is unchanged.
 - **Metering**: actual usage is summed from the Claude Code transcript, de-duplicated by message, into `~/.claude/fugue/metrics` in the Codex-compatible ledger format. The transcript format is not a public interface; unreadable usage stays unknown, never zero.
-- **SKILL.md** body is about 40% smaller. With hooks installed, routine coding no longer needs the skill; the manual workflow for Codex and other tools moved to [references/manual-workflow.md](references/manual-workflow.md).
+- **SKILL.md** body is about 40% smaller. With hooks installed, routine coding no longer needs the skill; workflows without enabled hooks use [references/manual-workflow.md](references/manual-workflow.md).
 
 Installing through the plugin marketplace enables the hooks (`hooks/hooks.json`); projects without indexes are untouched. If you registered `geb_stop_hook.py` in `settings.json` by hand, remove that entry so two Stop hooks do not run. No real-model comparison has been run for this release yet; savings still need to be measured.
 
@@ -37,11 +43,9 @@ The [first three-arm pilot](evals/TOKEN_PILOT_RESULTS.md) stopped at the soft bu
 
 Requires Python 3.9+. `geb_arch.py` generates architecture candidates from shared dependency facts, with file-level evidence and unresolved imports. Scores are heuristics, not calibrated probabilities. Sync preserves non-code ledger rows and handles empty directories and Unicode Git paths. Commit hooks validate the staged snapshot.
 
-For a standalone Codex skill, copy `SKILL.md`, `scripts/`, `references/`, `adapters/`, `agents/` and `LICENSE` into `~/.agents/skills/fugue-docs`. Exclude `.claude-plugin/`: local installation testing found that its presence prevented standalone skill discovery. If an installer uses `~/.codex/skills/fugue-docs`, link that directory from `~/.agents/skills/` and move `.claude-plugin/` out of the installed copy. Verify that `fugue-docs` is listed and enabled, not merely present on disk.
+See [Install](#install) below and the [Codex guide](references/codex.md) for current setup. Project skills use `.agents/skills/fugue-docs`; personal skills use `~/.agents/skills/fugue-docs`. The default installs only the skill; explicit `--hooks` also registers native Codex hooks.
 
-An explicit default in `~/.codex/AGENTS.md` can enable Fugue for future development tasks while preserving project-specific rules. Existing projects are adopted when worked on, not rewritten in bulk. Resolve commands relative to the actual skill directory.
-
-`scripts/geb_metrics.py` records observed task token intervals in `~/.codex/fugue/metrics/`. Savings stay unknown without an independent, quality-reviewed comparison on the same task, model and revision. Negative differences remain negative. See [accounting details](references/token-accounting.md) and [tests](evals/README.md). CI runs boundary tests and self-checks on macOS/Linux with Python 3.9/3.14.
+Without hooks, `scripts/geb_metrics.py` optionally records task token intervals when requested, with readable local telemetry and a writable ledger. Enabled hooks record available telemetry automatically. The default ledger is `${CODEX_HOME:-~/.codex}/fugue/metrics/`; missing telemetry stays unknown and does not block development. Savings stay unknown without an independent, quality-reviewed comparison on the same task, model and revision. Negative differences remain negative. See [accounting details](references/token-accounting.md) and [tests](evals/README.md). CI runs boundary tests and self-checks on macOS/Linux with Python 3.9/3.14.
 
 ## Origin & Credits
 
@@ -63,13 +67,34 @@ fugue-docs is an **independent implementation and an independent evolution**: it
 ### Six design principles
 
 1. **Isomorphism is verifiable, not a slogan**: `geb_check.py` checks in two layers — **structural** (default): L1 existence, L2 coverage, L3 tag completeness, ledger reconciliation (missing + ghost entries); **semantic drift** (`--strict`, conservative heuristics): does L1 mention every top-level code directory, does each L3 `[INPUT]` keep up with actual imports. Non-zero exit = phases out of sync; CI-ready. Deeper semantic sync is the AI loop's job — an explicit division of labor, not a gap. A CLAUDE.md only counts as an index when it carries GEB protocol markers, closing the "prose CLAUDE.md adopts the protocol in name only" loophole. This repo checks itself with `--strict` in CI.
-2. **The loop is a hard constraint, not model goodwill**: three gates, enable as needed — Claude Code Stop hook (before finishing), git pre-commit hook (before committing), CI (before merging). See "Hard-constraint mode" below.
+2. **The loop is a hard constraint, not model goodwill**: three gates, enable as needed — Claude Code / Codex Stop hook (before finishing), git pre-commit hook (before committing), CI (before merging). See "Hard-constraint mode" below.
 3. **The machine phase is fully automated; only the semantic phase needs intelligence**: at initialization the scaffolder generates the skeleton statically (semantics left as `TODO`); during maintenance `geb_sync` treats `[INPUT]` lines and ledger tables as **views regenerated from code** — derived data is never hand-copied or reconciled, reducing machine-field drift within the parser's tested coverage. The machine never pretends to understand semantics.
 4. **Layer count scales with complexity — it is not dogma**: the protocol's invariants are "every semantic boundary has a locatable index, indexes declare coverage, entities backlink, machines verify, costs stay proportional"; L1/L2/L3 is just the default profile — small projects (≤20 files) automatically drop to two layers (ledger folded into L1), and the **recursive fractal** extends upward: a subdirectory with its own `PROJECT_INDEX.md` is a subproject (its L1 doubles as the parent's L2) with automatic recursive checking and syncing — native monorepo support. No headers for generated files / configs / vendored deps.
 5. **Bottom-up initialization**: L3 comes from reading code, L2 summarizes L3, L1 summarizes L2 — every level grounded in facts. Fabricated docs are worse than no docs.
 6. **Transparent and auditable**: every task ends with a loop report line `GEB loop: L3 ✓ | L2 ✓ | L1 —`; when sandboxes forbid script execution, fall back to manual reconciliation following the checker's logic, stated honestly.
 
 ## Install
+
+### Codex
+
+Run from this repository, replacing the path with your project:
+
+```bash
+python3 scripts/geb_install_codex.py --project /path/to/project --hooks --dry-run
+python3 scripts/geb_install_codex.py --project /path/to/project --hooks
+```
+
+The project skill goes in `.agents/skills/fugue-docs`; `--hooks` writes native configuration to the project's `.codex/hooks.json`. Use `--user --hooks` for personal installation, with hooks at `${CODEX_HOME:-~/.codex}/hooks.json`. A custom `--dest /path/to/skills/fugue-docs --hooks` also requires `--hooks-dir <configuration-directory>`. Project and personal hooks accumulate: register Fugue at only one scope for a given project. Linked worktrees require explicit `--hooks-dir` selecting the actual configuration source.
+
+Reopen the project or start a new session, confirm the skill appears, and review and trust the commands through Codex's **Hooks need review** or `/hooks`. The installer does not prefill trust, set bypass flags or change `config.toml`. For first adoption, request `$fugue-docs Initialize indexes for this project`; installation itself does not initialize indexes. With indexes present and trusted hooks active, maintenance runs automatically and the model only responds to semantic prompts. Continue running relevant project tests.
+
+Omit `--hooks` to keep the default skill-only installation and use [manual sync and checks](references/manual-workflow.md). Manual `--changed` includes all uncommitted repository changes: preview its scope and preserve others' edits. Native hook metering keeps missing or mismatched telemetry unknown, without repeated `doctor` calls, elevated access or blocking development. `FUGUE_DATA_DIR` overrides the hook data directory.
+
+Add `--update` for updates and preview with `--dry-run`. The installer preserves other hooks and rejects locally modified managed files or entries. It copies only allowlisted skill files, excludes Claude's `.claude-plugin/` and `hooks/`, and does not register pre-commit or CI. See the [Codex guide](references/codex.md) for complete commands and environment limits.
+
+Without a native skill, run `python3 scripts/geb_adapt.py /path/to/project --tool codex --copy-tools --lang en`, first adding `--dry-run`. This injects rules into an existing `AGENTS.override.md`, otherwise `AGENTS.md`, and copies scripts into the project. See [references/codex.md](references/codex.md) for details.
+
+### Claude Code
 
 Option 1 — plugin marketplace (recommended, two commands inside Claude Code):
 
@@ -87,7 +112,7 @@ cp -r fugue-docs ~/.claude/skills/fugue-docs
 
 ## Usage
 
-Once installed there are **no commands to remember** — that is the point of the skill form factor:
+The `/fugue-docs` invocation below applies to Claude Code. Codex uses `$fugue-docs` for explicit requests; enabled and trusted native hooks handle routine maintenance automatically, with a manual workflow available otherwise:
 
 - **Automatic**: whenever Claude creates / modifies / deletes / renames code in any project, the protocol applies automatically. Requests like "initialize docs", "map out this project", or "the docs are out of sync" also trigger it.
 - **Manual `/fugue-docs`**: not a built-in command — Claude Code auto-generates a slash command for every installed skill. Type `/fugue-docs` plus your request to invoke the protocol explicitly, e.g. `/fugue-docs index this project`.
@@ -99,6 +124,7 @@ Once installed there are **no commands to remember** — that is the point of th
 | `python3 scripts/geb_check.py <project>` | Structural check; `--strict` drift audit, `--complete` TODO sweep, `--report` loop line, `--emit-facts` machine facts JSON, `--json` for CI |
 | `python3 scripts/geb_scaffold.py <project>` | Deterministic scaffolder; `--dry-run` to preview |
 | `python3 scripts/geb_adapt.py <project> --tool …` | Plug the protocol into other AI tools (next section) |
+| `python3 scripts/geb_install_codex.py --project <project> --hooks` | Install the Codex skill and native hooks; `--user` for personal scope, `--dry-run` to preview, `--update` to update |
 
 ## Works with any tool, any model
 
@@ -114,7 +140,7 @@ It modifies the target project's rule files, `.git/hooks/`, and `.github/workflo
 | Tool / model | Integration | Command |
 |--------------|------------|---------|
 | Claude Code | skill, auto-triggered (best experience) | `/plugin install fugue-docs@fugue-docs` |
-| OpenAI Codex CLI | `AGENTS.md` | `--tool codex` |
+| OpenAI Codex | Native skill or project `AGENTS.override.md` / `AGENTS.md` | `geb_install_codex.py --project …` or `--tool codex --copy-tools` |
 | Cursor | `.cursorrules` | `--tool cursor` |
 | Windsurf | `.windsurfrules` | `--tool windsurf` |
 | Cline / Roo Code (DeepSeek or any model) | `.clinerules` | `--tool cline` |
@@ -137,10 +163,16 @@ fugue-docs/
 ├── scripts/geb_check.py           # Isomorphism checker (standalone, CI-friendly)
 ├── scripts/geb_scaffold.py        # Deterministic scaffolder (static analysis)
 ├── scripts/geb_adapt.py           # Universal adapter: inject rules into any tool + install constraints
+├── scripts/geb_install_codex.py   # Codex skill and optional native hook installer
+├── scripts/geb_codex_hook.py      # Codex events: attribution, automatic sync, semantic prompts
+├── scripts/geb_codex_metering.py  # Local session metering for native Codex hooks
+├── scripts/geb_codex_config.py    # Managed hook configuration merging and conflict checks
 ├── scripts/geb_hook.py            # Claude Code hooks: session baseline, auto sync, semantic-gap prompts, transcript metering
 ├── scripts/geb_stop_hook.py       # Legacy Stop hook: whole-project check, blocks on any violation
 ├── hooks/hooks.json               # Hook registration shipped with the plugin
-├── references/manual-workflow.md  # Manual maintenance for tools without hooks (Codex etc.)
+├── references/manual-workflow.md  # Explicit sync and checks for Codex and other tools
+├── references/codex.md            # Codex installation, invocation and environment notes
+├── references/codex-hooks.md      # Native Codex events, maintenance boundaries and protocol sources
 ├── scripts/git-pre-commit-hook.sh # git pre-commit hook: tool-agnostic hard constraint
 ├── .claude-plugin/                # marketplace distribution manifests
 └── evals/evals.json               # Test cases & assertions (replayable)

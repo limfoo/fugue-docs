@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 [INPUT]: 依赖 difflib, hashlib, json, os, re, subprocess, sys, time, uuid, geb_check, geb_scaffold
-[OUTPUT]: 提供 Claude Code 钩子入口 session-start / prompt / pre-tool / post-tool / stop / session-end:按工具调用归属本会话改动、自动同步机器字段、只把语义缺口回灌模型、从对话记录程序化计量
-[POS]: fugue-docs 工具层-程序化回环:机器能推导的由程序完成,模型只在语义环节参与
+[OUTPUT]: 提供 Claude Code 钩子入口及 Codex 共用维护引擎:按工具调用归属改动、自动同步机器字段、只把语义缺口回灌模型、按宿主分派计量
+[POS]: fugue-docs 工具层-双宿主共享程序化回环:机器字段由程序完成,模型只在语义环节参与
 [PROTOCOL]: 变更时更新此头部,然后检查 scripts/FOLDER_INDEX.md、hooks/hooks.json、SKILL.md 与 README 的钩子说明
 
 钩子绝不能卡住正常工作:任何异常都静默放行(exit 0),错误写入数据目录的 hook-errors.log。
@@ -59,6 +59,9 @@ NAVIGATION_HINT = ("本项目使用赋格索引:先读 PROJECT_INDEX.md,再读�
 
 def data_dir():
     # 固定位置便于用户查账,插件升级或卸载也不会带走账本
+    if os.environ.get("FUGUE_HOOK_AGENT") == "codex":
+        return os.environ.get("FUGUE_DATA_DIR") or os.path.join(
+            os.environ.get("CODEX_HOME") or os.path.join(os.path.expanduser("~"), ".codex"), "fugue")
     return os.environ.get("FUGUE_DATA_DIR") or os.path.join(os.path.expanduser("~"), ".claude", "fugue")
 
 
@@ -139,7 +142,8 @@ def git(root, *args):
 
 def project_root(payload):
     """会话目录;若它没有 L1 而所在 git 仓库根目录有,就用仓库根目录。规范化真实路径。"""
-    base = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or os.getcwd())
+    project_dir = None if payload.get("fugue_agent") == "codex" else os.environ.get("CLAUDE_PROJECT_DIR")
+    base = os.path.realpath(project_dir or payload.get("cwd") or os.getcwd())
     if find_index_file(base, L1_NAMES):
         return base
     top = (git(base, "rev-parse", "--show-toplevel") or "").strip()
@@ -818,6 +822,14 @@ def usage_point(totals):
 
 
 def record_metering(state, payload, event):
+    if state.get("fugue_agent") == "codex":
+        try:
+            from geb_codex_metering import record_metering as codex_metering
+            codex_metering(state, payload, event, data_dir())
+            save_state(state)
+        except Exception as error:  # 计量失败不能吞掉已经生成的语义缺口提示
+            log_error("codex-metering", error)
+        return
     session_id = state["session_id"]
     end, reason = transcript_usage(payload.get("transcript_path") or state.get("transcript_path"))
     usage, status = interval(state.get("usage_start"), end)
@@ -843,17 +855,26 @@ def record_metering(state, payload, event):
 # ---------------- 入口 ----------------
 
 def new_state(session_id, root, payload, coverage_start="session_start"):
-    totals, _reason = transcript_usage(payload.get("transcript_path"))
-    if totals is None and coverage_start == "session_start" and payload.get("source") in (None, "startup", "clear"):
+    codex = payload.get("fugue_agent") == "codex"
+    totals, _reason = (None, "codex") if codex else transcript_usage(payload.get("transcript_path"))
+    if not codex and totals is None and coverage_start == "session_start" and payload.get("source") in (None, "startup", "clear"):
         totals = {field: 0 for field in USAGE_FIELDS}
         totals["messages"] = 0
     head = current_head(root)
-    return {"schema": "geb.hook-session.v3", "session_id": session_id, "root": root,
+    state = {"schema": "geb.hook-session.v3", "session_id": session_id, "root": root,
             "started_at": now(), "transcript_path": payload.get("transcript_path"),
             "small_at_start": project_sizes(root), "authored": {}, "prompted": {},
             "git_state": {"commit": head, "dirty": bool(git(root, "status", "--porcelain"))} if head else None,
             "usage_start": usage_point(totals), "coverage_start": coverage_start,
             "stops": 0, "blocks": 0, "block_chars": 0, "auto_writes": 0, "skipped_turns": 0}
+    if codex:
+        state.update(fugue_agent="codex", fugue_session_id=payload.get("fugue_session_id"))
+        try:
+            from geb_codex_metering import initialize_metering
+            initialize_metering(state, payload)
+        except Exception as error:
+            log_error("codex-metering-start", error)
+    return state
 
 
 def prune_states():

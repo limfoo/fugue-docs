@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 [INPUT]: 依赖 argparse, os, re, shutil, stat, subprocess, sys
-[OUTPUT]: 提供一键适配命令——把 GEB 协议注入各 AI 工具的规则文件,并可安装 pre-commit / CI 硬约束
+[OUTPUT]: 提供一键适配命令——把 GEB 协议注入各 AI 工具的有效规则文件,为 Codex 补充工具定位与显式回环,并可安装 pre-commit / CI 硬约束
 [POS]: fugue-docs 工具层-通用性适配器(让 Codex/Cursor/Cline/Copilot/任意模型用户一条命令接入)
 [PROTOCOL]: 变更时更新此头部,然后检查 SKILL.md 与 README 中对本脚本的描述
 
@@ -31,7 +31,7 @@ END = "<!-- GEB-PROTOCOL END -->"
 
 # 工具名 → 规则文件相对路径
 TOOLS = {
-    "codex": "AGENTS.md",                            # OpenAI Codex CLI(也被多家工具支持)
+    "codex": "AGENTS.md",                            # Codex;已有有效 override 时优先更新它
     "cursor": ".cursorrules",                        # Cursor
     "windsurf": ".windsurfrules",                    # Windsurf
     "cline": ".clinerules",                          # Cline / Roo Code(可接 DeepSeek 等任意模型)
@@ -69,12 +69,26 @@ jobs:
 """
 
 
-def load_protocol(lang, compact=False):
+def load_protocol(lang, compact=False, tool=None):
     name = "PROTOCOL%s%s.md" % ("_COMPACT" if compact else "",
                                 "" if lang == "zh" else "_EN")
     path = os.path.join(ADAPTERS_DIR, name)
     with open(path, encoding="utf-8", errors="replace") as f:
-        return f.read().strip()
+        protocol = f.read().strip()
+    if tool == "codex":
+        name = "CODEX%s.md" % ("" if lang == "zh" else "_EN")
+        with open(os.path.join(ADAPTERS_DIR, name), encoding="utf-8") as f:
+            protocol += "\n\n" + f.read().strip()
+    return protocol
+
+
+def rule_path(root, tool):
+    """Codex 在同一层优先选择 AGENTS.override.md(即使为空),不能写入被遮蔽的文件。"""
+    if tool == "codex":
+        override = os.path.join(root, "AGENTS.override.md")
+        if os.path.isfile(override):
+            return "AGENTS.override.md"
+    return TOOLS[tool]
 
 
 def inject(target_path, protocol_text):
@@ -212,7 +226,17 @@ def main():
     tools = sorted(TOOLS) if "all" in args.tool else args.tool
 
     # 写入位置预告:本工具会修改目标项目的以下位置,先亮牌
-    planned = [TOOLS[t] for t in tools]
+    try:
+        targets = {t: rule_path(root, t) for t in tools}
+        for rel in targets.values():
+            path = os.path.join(root, rel)
+            real_root = os.path.realpath(root)
+            if os.path.islink(path) or os.path.commonpath([real_root, os.path.realpath(path)]) != real_root:
+                raise ValueError("规则文件必须位于项目内且不能是符号链接: %s" % rel)
+    except (OSError, UnicodeError, ValueError) as error:
+        print("错误: %s" % error, file=sys.stderr)
+        return 2
+    planned = list(targets.values())
     if args.pre_commit:
         planned.append("git hooks/pre-commit(+ 暂存检查器及依赖副本)")
     if args.ci:
@@ -228,11 +252,13 @@ def main():
     print()
 
     if tools:
-        protocol = load_protocol(args.lang, compact=args.compact)
         for t in tools:
-            rel = TOOLS[t]
+            protocol = load_protocol(args.lang, compact=args.compact, tool=t)
+            rel = targets[t]
             action = inject(os.path.join(root, rel), protocol)
             print("[%s] %s %s" % (t, action, rel))
+            if t == "codex":
+                print("    Codex:保留更深层 AGENTS.md / AGENTS.override.md 的作用域;未安装会话钩子。")
         if "generic" in tools:
             print("    generic:把 GEB_PROTOCOL.md 内容粘贴为系统提示词即可用于任意聊天模型")
     if args.copy_tools and not args.ci:

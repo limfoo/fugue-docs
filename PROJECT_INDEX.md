@@ -3,7 +3,7 @@
 > 本文件是项目的语义相入口。架构变更(模块增删、依赖关系变化、技术栈调整)后必须更新本文件。
 
 ## 定位
-GEB 分形文档协议的工具集仓库:以 Claude Code skill 为最佳体验、万模通用的协议实现,包含协议文本、架构候选生成器、检查器、脚手架、适配器与硬约束钩子。本仓库自身遵循本协议(吃自己的狗粮),CI 会对自身做同构检查。
+GEB 分形文档协议的工具集仓库:支持 Claude Code 插件钩子与 Codex 原生 skill / hooks 的协议实现,包含协议文本、架构候选生成器、检查器、脚手架、适配器与硬约束钩子。两种宿主复用自动维护引擎,分别处理工具事件与会话计量;未启用钩子时保留显式维护流程。本仓库自身遵循本协议(吃自己的狗粮),CI 会对自身做同构检查。
 
 ## 技术栈
 Python 3(≥3.9,零第三方依赖)+ POSIX shell + Markdown。Codex/Claude Code skill 与插件市场分发;`gh`/git 用于发布。Codex 用量账本保存在用户目录,不进入项目仓库。
@@ -11,13 +11,14 @@ Python 3(≥3.9,零第三方依赖)+ POSIX shell + Markdown。Codex/Claude Code 
 ## 目录结构
 ```text
 fugue-docs/
-├── SKILL.md           # 协议本体(Claude Code skill 入口)
-├── adapters/          # 协议可移植核心(中/英),万模通用的单一事实来源
+├── AGENTS.md          # Codex 仓库开发约定与验证入口
+├── SKILL.md           # 协议本体(Claude Code / Codex skill 入口)
+├── adapters/          # 协议可移植核心(中/英)及 Codex 执行约定
 ├── agents/            # Codex 技能展示与隐式调用策略
 ├── assets/            # logo 等静态资源
 ├── hooks/             # Claude Code 插件钩子登记(无代码)
 ├── evals/             # 评测包:用例、夹具、评分器、三组试点与安全启动入口 → evals/FOLDER_INDEX.md
-├── references/        # L1/L2/L3 多语言模板库
+├── references/        # 模板、Codex 安装/钩子协议、显式维护与计量说明
 └── scripts/           # 全部可执行工具 → scripts/FOLDER_INDEX.md
 ```
 
@@ -37,8 +38,17 @@ graph TD
     geb_hook --> geb_sync
     geb_hook --> geb_metrics
     geb_hook --> Claude_transcript
+    geb_hook --> geb_codex_metering
+    geb_codex_hook --> geb_hook
+    geb_codex_hook --> Codex_hook_events
+    geb_codex_metering --> geb_metrics
+    geb_codex_metering --> geb_telemetry
     geb_adapt --> geb_check
     geb_adapt --> adapters_PROTOCOL
+    geb_adapt --> adapters_CODEX
+    geb_install_codex --> Skill_package
+    geb_install_codex --> geb_codex_config
+    geb_codex_config --> Codex_hooks_json
     pre_commit_hook --> geb_check
     pre_commit_hook --> geb_staged
     geb_staged --> geb_check
@@ -55,7 +65,8 @@ graph TD
 ## 根目录文件
 | 文件 | 职责 |
 |------|------|
-| SKILL.md | 协议本体,Claude Code skill 定义 |
+| AGENTS.md | Codex 仓库开发约定与离线验证入口 |
+| SKILL.md | 协议本体,Claude Code / Codex skill 定义 |
 | README.md / README_EN.md / README_JA.md | 三语说明文档 |
 | PROJECT_INDEX.md | 本文件(L1) |
 | LICENSE | MIT,含思想来源致谢 |

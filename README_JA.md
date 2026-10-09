@@ -14,7 +14,13 @@
 
 「GEB フラクタル・ドキュメント・プロトコル」を AI コーディングの日常的な作法に変えるツールキットです。三層フラクタル索引(L1 プロジェクト / L2 フォルダ / L3 ファイルヘッダ)+ 強制ループ更新 + 機械検証可能な同型性により、AI 支援開発時代のプロジェクト・エントロピー——コードは散らかり、ドキュメントは常に遅れる——に対抗します。
 
-Claude Code スキルとしての利用が最良の体験ですが、設計上**モデル非依存**です:Codex、Cursor、Windsurf、Cline(DeepSeek など任意のモデル)、Copilot、さらには Web チャットまで、コマンド一発で同じプロトコルと同じハード制約に接続できます。詳細は「あらゆるツール・モデルで使える」の節を参照してください。
+Claude Code と Codex はネイティブフックで自動保守できます。Codex には単独スキルとプロジェクト規則による接続もあります。同じプロトコルは Cursor、Windsurf、Cline、Copilot、Web チャットでも利用できます。各ツールの接続方法と任意のコミット検査は「あらゆるツール・モデルで使える」を参照してください。
+
+## Codex ネイティブフック:自動保守と意味の補完
+
+`geb_install_codex.py --hooks` で SessionStart、UserPromptSubmit、Pre/PostToolUse、Stop、SessionEnd、Interrupt、SubagentStart/SubagentStop の計九種類を配置します。Codex の標準の信頼確認を経て有効になると、日常の同期・検査・計量コマンドは不要です。開始時に索引を案内し、ツールイベントで当該会話の変更を記録、Stop で L3 と機械フィールドを同期して、新たな意味の欠落だけをモデルへ返して補完を続けます。子エージェントも自身の開始・終了イベントで同じ保守を行い、計量は子のログに独立して紐付けます。同じ欠落は内容が変わらない限り一度だけ通知し、未採用プロジェクトは自動初期化しません。
+
+現在のインターフェース確認は Codex CLI `0.159.0-alpha.3` に基づきます。この版の `hooks` は stable で既定で有効、旧 `plugin_hooks` フラグは不要です。フックは Codex のホスト上で動くため、ホストから見えないリモートファイルは保守できません。Desktop とクラウドは個別に確認が必要です。[インストール](#インストール)と[フックの詳細](references/codex-hooks.md)にイベント、帰属の境界、参照ソースを記載しています。
 
 ## v2.7: Claude Code フックでモデルは意味だけを担当
 
@@ -23,7 +29,7 @@ Claude Code スキルとしての利用が最良の体験ですが、設計上**
 - **モデル自身が書いたファイルだけ**:モデルが編集・書き込みツールを使う前に対象ファイルを記録し、シェルコマンドの前後で未コミット変更を比較して、そのコマンドが変えたコードファイルを記録します。checkout・pull・merge・stash pop などの git コマンドで入ったファイル、ユーザー自身の変更、同じリポジトリの別セッションが書いたファイルは含めません。コミット済み、元に戻ったもの、ターンの合間にユーザーが再び変更したものは記録から外します。セッション開始時はコンテキストに 1 行の案内だけを追加します。
 - **各ターン終了**:このセッションが書き、まだ差分があり、未コミットのコードファイルだけを扱います。merge や rebase の途中は何も書き込みません。競合や構文エラーのあるファイル、UTF-8 以外のファイル、生成コード、プロジェクト外を指すシンボリックリンクは個別に飛ばし、一覧の既存の機械フィールドはそのまま残します。新規ファイルには L3 ヘッダーの骨格を入れ、依存と一覧は `geb_sync` が差分同期します。関数本体だけの変更は何も出力しません。新規ファイルの `[POS]`、一覧の役割、export 変更後の `[OUTPUT]`、新ディレクトリの位置付けといった意味の欠落だけを短い指示でモデルに渡し、内容が変わらない限り同じ欠落は一度しか伝えません。
 - **計量**:Claude Code の会話記録からメッセージ単位で重複を除いて実使用量を集計し、Codex と互換の形式で `~/.claude/fugue/metrics` に記録します。会話記録の形式は公開インターフェースではないため、読めない場合はゼロではなく不明とします。
-- **SKILL.md** 本文は約 4 割小さくなりました。フック導入後は通常のコーディングでスキルを呼ぶ必要がなく、Codex など向けの手動手順は [references/manual-workflow.md](references/manual-workflow.md) に移しました。
+- **SKILL.md** 本文は約 4 割小さくなりました。フック導入後は通常のコーディングでスキルを呼ぶ必要がなく、フックを有効にしていない場合の手順は [references/manual-workflow.md](references/manual-workflow.md) に移しました。
 
 プラグインマーケットからインストールするとフック(`hooks/hooks.json`)が有効になり、索引のないプロジェクトには干渉しません。`settings.json` に `geb_stop_hook.py` を手動登録していた場合は、Stop フックが二重に動かないよう削除してください。本リリースはまだ実モデルでの対照測定をしていないため、削減効果は今後の試験で確認が必要です。
 
@@ -37,11 +43,9 @@ Claude Code スキルとしての利用が最良の体験ですが、設計上**
 
 Python 3.9 以上が必要です。`geb_arch.py` は共有の依存解析からアーキテクチャ候補を生成し、ファイル単位の根拠と未解決の import を出力します。スコアはヒューリスティックであり、正解確率ではありません。同期時の非コード説明の保持、空ディレクトリと Unicode パスの処理を修正し、コミットフックはステージ済みスナップショットを検査します。
 
-Codex の個人用スキルは `~/.agents/skills/fugue-docs` に配置します。`SKILL.md`、`scripts/`、`references/`、`adapters/`、`agents/`、`LICENSE` をコピーし、`.claude-plugin/` は含めないでください。ローカル検証では、このメタデータが単独スキルの検出を妨げました。インストーラーが `~/.codex/skills/fugue-docs` を使う場合は、`~/.agents/skills/` から同名リンクを作成し、インストールしたコピーの `.claude-plugin/` を別の場所に移します。ファイルの存在だけでなく、スキル一覧で `fugue-docs` が有効であることを確認してください。
+現在の手順は下記の[インストール](#インストール)と [Codex ガイド](references/codex.md)を参照してください。プロジェクト用スキルは `.agents/skills/fugue-docs`、個人用は `~/.agents/skills/fugue-docs` に配置します。既定ではスキルだけを配置し、明示的な `--hooks` でネイティブフックも登録します。
 
-`~/.codex/AGENTS.md` に既定のルールを追加し、今後の開発タスクに適用できます。既存のプロジェクト規則を維持し、過去の全プロジェクトを一括変更しません。コマンドには実際のインストール先を使用します。
-
-`scripts/geb_metrics.py` は実測 token 使用量を `~/.codex/fugue/metrics/` に記録します。同じタスク・モデル・コミットで、品質を確認した独立した対照実験がない場合、削減量は不明のままです。負の差分も保持します。[計量説明](references/token-accounting.md) と [テスト](evals/README.md) を参照してください。CI は macOS/Linux、Python 3.9/3.14 で境界テストと自己検査を実行します。
+フック未使用時の `scripts/geb_metrics.py` は任意で、ユーザーが求め、ログを読めて台帳に書き込める場合のみ実行します。フック有効時は利用可能なテレメトリを自動記録します。既定の台帳は `${CODEX_HOME:-~/.codex}/fugue/metrics/` で、ログがなければ不明とし、開発を止めません。同じタスク・モデル・コミットで、品質を確認した独立した対照実験がない場合、削減量も不明のままです。負の差分も保持します。[計量説明](references/token-accounting.md) と [テスト](evals/README.md) を参照してください。CI は macOS/Linux、Python 3.9/3.14 で境界テストと自己検査を実行します。
 
 ## 出典とクレジット
 
@@ -63,13 +67,34 @@ fugue-docs は**独立した実装であり、独立した進化**です:オリ�
 ### 6 つの設計原則
 
 1. **同型性はスローガンではなく検証可能**:`geb_check.py` は二層で検査——**構造層**(デフォルト):L1 の存在、L2 カバレッジ、L3 タグの完全性、索引台帳と実ファイルの突合(欠落 + 幽霊エントリ);**意味ドリフト層**(`--strict`、保守的ヒューリスティクス):L1 が全トップレベル・コードディレクトリに言及しているか、各 L3 `[INPUT]` が実際の import に追随しているか。終了コード非 0 = 両相不一致、CI 対応。より深い意味の同期は AI ループの担当——明確な分業であり、検査の欠陥ではありません。CLAUDE.md は GEB プロトコル標識を含む場合のみ索引と認定され、「散文 CLAUDE.md による形だけの採用」という抜け穴を塞いでいます。本リポジトリ自身も CI で `--strict` 自己検査しています。
-2. **ループはハード制約、モデルの善意に頼らない**:3 つのゲートを必要に応じて有効化——Claude Code の Stop フック(終了前)、git pre-commit フック(コミット前)、CI(マージ前)。
+2. **ループはハード制約、モデルの善意に頼らない**:3 つのゲートを必要に応じて有効化——Claude Code / Codex の Stop フック(終了前)、git pre-commit フック(コミット前)、CI(マージ前)。
 3. **機械相は全自動、知能が要るのは意味相だけ**:初期化時はスキャフォールドが骨格を静的生成(意味は `TODO` のまま);保守期は `geb_sync` が `[INPUT]` 行と台帳テーブルを**コードから再生成されるビュー**として扱う——派生データは手書き・照合ではなく再生成。ドリフトの半分が根本から消えます。機械は意味を理解したふりをしません。
 4. **層数は複雑度に応じて伸縮——教条ではない**:プロトコルの不変量は「各意味境界に位置特定可能な索引、索引はカバレッジを宣言、実体は親へ逆リンク、機械が検証、コストは比例」であり、L1/L2/L3 はデフォルト・プロファイルにすぎません——小規模(≤20 ファイル)は自動的に 2 層へ(台帳は L1 に統合);**再帰フラクタル**は上方向への拡張:`PROJECT_INDEX.md` を持つサブディレクトリはサブプロジェクト(その L1 が親の L2 を兼ねる)で、検査・同期は自動再帰——monorepo ネイティブ対応。生成ファイル・設定・vendored 依存にはヘッダ不要。
 5. **ボトムアップ初期化**:L3 はコードを読んで書き、L2 は L3 の要約、L1 は L2 の要約——全層が事実に基づきます。捏造されたドキュメントは無いより悪い。
 6. **透明で監査可能**:タスク終了時に必ず `GEB loop: L3 ✓ | L2 ✓ | L1 —` の一行レポートを付加。サンドボックスでスクリプト実行が禁止された場合は、チェッカーのロジックに従って手動照合し、その旨を正直に申告します。
 
 ## インストール
+
+### Codex
+
+本リポジトリのディレクトリで実行し、パスを対象プロジェクトに置き換えてください:
+
+```bash
+python3 scripts/geb_install_codex.py --project /path/to/project --hooks --dry-run
+python3 scripts/geb_install_codex.py --project /path/to/project --hooks
+```
+
+スキルは `.agents/skills/fugue-docs` に、`--hooks` による設定はプロジェクトの `.codex/hooks.json` に配置します。個人用は `--user --hooks` で、設定先は `${CODEX_HOME:-~/.codex}/hooks.json` です。任意の配置先 `--dest /path/to/skills/fugue-docs --hooks` では `--hooks-dir <設定ディレクトリ>` も必要です。プロジェクトと個人の hooks は累積するため、同じプロジェクトには一方だけを登録します。linked worktree は実際の設定元を `--hooks-dir` で明示してください。
+
+プロジェクトを開き直すか新しい会話を始め、スキル一覧を確認し、Codex の **Hooks need review** または `/hooks` でコマンドを確認して信頼します。インストーラーは信頼の事前登録、bypass の設定、`config.toml` の変更を行いません。初回は `$fugue-docs このプロジェクトの索引を初期化して` と依頼できます。配置だけでは初期化しません。索引があり、信頼済みフックが有効なら日常保守は自動で、モデルは意味の通知に応答します。プロジェクトのテストは引き続き実行してください。
+
+`--hooks` を省略すると既定のスキル単独配置となり、[手動で同期・検査](references/manual-workflow.md)します。手動の `--changed` はリポジトリ全体の未コミット変更を含むため、先に範囲を確認し、他の編集を保持します。ネイティブフックの自動計量は、ログの欠落や会話 ID の不一致を unknown/不明として続行します。`doctor` の反復や計量のための権限昇格は不要です。`FUGUE_DATA_DIR` でフックのデータディレクトリを指定できます。
+
+更新は `--update`、事前確認は `--dry-run` を使います。他の hooks を保持し、ローカル変更された管理対象ファイル・項目の上書きは拒否します。許可リスト内のスキルファイルだけをコピーし、Claude の `.claude-plugin/` と `hooks/` は含めず、pre-commit や CI も登録しません。全コマンドと環境の制限は [Codex ガイド](references/codex.md) を参照してください。
+
+ネイティブスキルを使わない場合は `python3 scripts/geb_adapt.py /path/to/project --tool codex --copy-tools` を使い、先に `--dry-run` を付けて確認します。既存の `AGENTS.override.md`、なければ `AGENTS.md` に規則を挿入し、プロジェクト内にスクリプトをコピーします。詳しくは [references/codex.md](references/codex.md) を参照してください。
+
+### Claude Code
 
 方法 1:プラグイン・マーケットプレイス(推奨、Claude Code 内で 2 行):
 
@@ -87,7 +112,7 @@ cp -r fugue-docs ~/.claude/skills/fugue-docs
 
 ## 使い方
 
-インストール後は**覚えるコマンドはありません**——これがスキル形態の本質です:
+以下の `/fugue-docs` は Claude Code 向けです。Codex の明示的な呼び出しは `$fugue-docs` を使い、信頼済みのネイティブフックが有効なら日常保守は自動、未使用なら手動手順を使います:
 
 - **自動トリガ**:どのプロジェクトでも、Claude にコードの追加・変更・削除・リネームをさせると、プロトコルが自動適用されます(変更後すぐ L3→L2→L1 のループ更新)。「ドキュメントを初期化して」「プロジェクト構造を整理して」「ドキュメントとコードが合っていない」などの依頼でも発動します。
 - **手動呼び出し `/fugue-docs`**:これはシステム組み込みコマンドではありません——Claude Code はインストール済みの各スキルに同名のスラッシュコマンドを自動生成します。明示的にプロトコルを使いたいときは `/fugue-docs` に依頼を添えて入力してください。例:`/fugue-docs このプロジェクトに索引を作って`。
@@ -99,6 +124,7 @@ cp -r fugue-docs ~/.claude/skills/fugue-docs
 | `python3 scripts/geb_check.py <プロジェクト>` | 構造チェック。`--strict` ドリフト照合、`--complete` TODO 残存検査、`--report` ループ行、`--emit-facts` 機械ファクト JSON、`--json` で CI 向け |
 | `python3 scripts/geb_scaffold.py <プロジェクト>` | 決定論的スキャフォールド。`--dry-run` でプレビュー |
 | `python3 scripts/geb_adapt.py <プロジェクト> --tool …` | 他の AI ツールへプロトコルを接続(次節) |
+| `python3 scripts/geb_install_codex.py --project <プロジェクト> --hooks` | Codex スキルとフック配置。`--user` 個人用、`--dry-run` プレビュー、`--update` 更新 |
 
 ## あらゆるツール・モデルで使える
 
@@ -114,7 +140,7 @@ python3 scripts/geb_adapt.py /path/to/project --tool all --lang en --ci
 | ツール / モデル | 接続方式 | コマンド |
 |----------------|---------|---------|
 | Claude Code | スキル自動トリガ(最良の体験) | `/plugin install fugue-docs@fugue-docs` |
-| OpenAI Codex CLI | `AGENTS.md` | `--tool codex` |
+| OpenAI Codex | ネイティブスキル、または `AGENTS.override.md` / `AGENTS.md` | `geb_install_codex.py --project …` または `--tool codex --copy-tools` |
 | Cursor | `.cursorrules` | `--tool cursor` |
 | Windsurf | `.windsurfrules` | `--tool windsurf` |
 | Cline / Roo Code(DeepSeek など任意のモデル) | `.clinerules` | `--tool cline` |
@@ -137,10 +163,16 @@ fugue-docs/
 ├── scripts/geb_check.py           # 同型性チェッカー(単体利用可、CI 対応)
 ├── scripts/geb_scaffold.py        # 決定論的スキャフォールド(静的解析)
 ├── scripts/geb_adapt.py           # 汎用アダプタ:任意ツールへ注入 + ハード制約導入
+├── scripts/geb_install_codex.py   # Codex スキルと任意のネイティブフック配置
+├── scripts/geb_codex_hook.py      # Codex イベント:帰属追跡、自動同期、意味の通知
+├── scripts/geb_codex_metering.py  # Codex ネイティブフックのローカル計量
+├── scripts/geb_codex_config.py    # フック設定の管理対象マージと競合確認
 ├── scripts/geb_hook.py            # Claude Code フック:セッション基準、自動同期、意味の欠落の指示、会話記録の計量
 ├── scripts/geb_stop_hook.py       # 旧版 Stop フック:全体検査、違反があれば終了不可
 ├── hooks/hooks.json               # プラグイン同梱のフック登録
-├── references/manual-workflow.md  # フックのないツール(Codex など)の手動手順
+├── references/manual-workflow.md  # Codex などの明示的な同期・検査手順
+├── references/codex.md            # Codex の配置、呼び出し、環境の説明
+├── references/codex-hooks.md      # Codex イベント、保守の境界、プロトコル参照元
 ├── scripts/git-pre-commit-hook.sh # git pre-commit フック:ツール非依存のハード制約
 ├── .claude-plugin/                # マーケットプレイス配布マニフェスト
 └── evals/evals.json               # テストケースとアサーション(再実行可能)

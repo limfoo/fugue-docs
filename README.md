@@ -14,7 +14,13 @@
 
 一个把「GEB 分形文档协议」变成 AI 编程日常工作方式的工具集:三级分形索引(L1 项目 / L2 文件夹 / L3 文件头)+ 程序化架构候选 + 强制回环检查 + 机器可验证的同构性,用来对抗 AI 辅助开发时代的项目熵增——代码越写越乱、文档永远滞后。
 
-以 Claude Code skill 为最佳体验,同时**万模通用**:Codex、Cursor、Windsurf、Cline(可接 DeepSeek 等任意模型)、Copilot 乃至网页聊天,一条命令即可接入同一协议与同一套硬约束,详见[「万模通用」](#万模通用任何工具任何模型)一节。
+Claude Code 和 Codex 都可通过原生钩子自动维护,Codex 还支持独立技能与项目规则接入;同一协议也可用于 Cursor、Windsurf、Cline、Copilot 和网页聊天。各工具的接入方式与可选提交检查见[「万模通用」](#万模通用任何工具任何模型)一节。
+
+## Codex 原生钩子:自动维护,模型只补语义
+
+`geb_install_codex.py --hooks` 为 Codex 安装 SessionStart、UserPromptSubmit、Pre/PostToolUse、Stop、SessionEnd、Interrupt 和 SubagentStart/SubagentStop 共九类钩子。启用并通过 Codex 原生信任审查后,开发时不需要手动运行同步、检查、计量脚本:会话开始提供索引导航,工具事件记录本会话改动,Stop 自动补 L3、同步机器字段,仅将新增语义缺口交回模型继续补写。子代理通过自身的启动/结束事件获得相同维护,计量独立绑定子日志。相同缺口内容不变时只提示一次,未采用协议的项目不自动初始化。
+
+当前接口验证基于 Codex CLI `0.159.0-alpha.3`(`hooks` 为 stable、默认启用),不需要旧 `plugin_hooks` 开关。钩子在 Codex 宿主执行,不能维护宿主看不到的远端工作区;Desktop/云端需分别确认支持情况。安装步骤见下方[安装](#安装),事件、归属边界与源码依据见 [Codex hooks 说明](references/codex-hooks.md)。
 
 ## v2.7: Claude Code 钩子,模型只做语义
 
@@ -23,7 +29,7 @@
 - **只认模型自己写的文件**:模型用编辑或写文件工具之前,钩子记下目标文件;模型运行命令前后各对比一次,命令改了哪些代码文件就记哪些。切分支、拉取、合并、暂存恢复等 git 命令带来的文件,你自己改的文件,同一仓库里另一个会话写的文件,都不算本会话的。已提交、改回原样、或在两轮之间被你再改过的文件会移出记录。会话开始时只向上下文注入一行导航提示。
 - **每轮结束**:只处理本会话写过、仍有净改动、仍未提交的代码文件。合并或变基进行中本轮不写任何文件;有冲突或语法错误的文件、非 UTF-8 文件、生成代码和指向项目外的符号链接逐个跳过,清单里保留它们原有的机器字段。新文件补 L3 头骨架,依赖与清单由 `geb_sync` 增量同步;只改函数体时完全静默。只有新文件的 `[POS]`、清单职责、导出变化后的 `[OUTPUT]`、新目录定位这几类语义缺口,才以一条简短提示交给模型,同一缺口内容不变时只提示一次。
 - **计量**:从 Claude Code 对话记录按消息去重累计实际用量,写入 `~/.claude/fugue/metrics`,与 Codex 账本格式兼容。对话记录格式不是公开接口,读不到时记为未知,不记成零。
-- **SKILL.md** 正文缩减约四成;装了钩子后,日常写代码不再需要调用技能,手动流程移到 [references/manual-workflow.md](references/manual-workflow.md) 供 Codex 等工具使用。
+- **SKILL.md** 正文缩减约四成;装了钩子后,日常写代码不再需要调用技能,手动流程移到 [references/manual-workflow.md](references/manual-workflow.md),供未启用钩子的工具使用。
 
 通过插件市场安装即自动启用钩子(`hooks/hooks.json`),未采用协议的项目零打扰。曾在 `settings.json` 手动登记 `geb_stop_hook.py` 的用户请删除那条配置,避免两个 Stop 钩子同时运行。这一版尚未做真实模型对照,节省效果需要后续试点测量。
 
@@ -37,11 +43,9 @@
 
 需要 Python 3.9+。本版修复同步内容保留、空目录和中文路径漏检,统一完整依赖事实,并以暂存快照校验提交。架构候选分数是启发式权重,不是正确概率;未解析导入会单独列出。
 
-Codex 的个人技能目录为 `~/.agents/skills/fugue-docs`。从本仓库复制 `SKILL.md`、`scripts/`、`references/`、`adapters/`、`agents/` 和 `LICENSE` 即可;不要把 `.claude-plugin/` 一并复制为独立 Codex 技能,本机实测该元数据会影响技能发现。如果安装器把文件放在 `~/.codex/skills/fugue-docs`,可在 `~/.agents/skills/` 创建指向它的同名目录链接,并移开安装副本中的 `.claude-plugin/`。完成后确认技能列表中 `fugue-docs` 已启用,不能只以文件存在作为安装成功依据。
+Codex 的当前安装方式见下方[安装](#安装)和 [Codex 接入说明](references/codex.md)。项目技能使用 `.agents/skills/fugue-docs`,个人技能使用 `~/.agents/skills/fugue-docs`;默认只安装技能,显式 `--hooks` 才注册 Codex 原生钩子。
 
-在 `~/.codex/AGENTS.md` 加入开发任务使用赋格的默认规则,即可覆盖今后的开发。项目既有规则仍保留,全局默认不会自动改写所有历史项目。工具以实际安装目录为准。
-
-新增 `scripts/geb_metrics.py` 记录任务起止时的实际 token 用量,账本默认在 `~/.codex/fugue/metrics/`。只有同任务、同模型、同提交且质量经过复核的独立对照,才计算 token 差值;无基线保持未知,负值如实记录。用法见 [计量说明](references/token-accounting.md)。
+未启用钩子时,`scripts/geb_metrics.py` 可选记录任务起止时的实际 token 用量,仅在用户要求且本地日志可读、账本可写时启用;已启用钩子时自动记录可用遥测。账本默认在 `${CODEX_HOME:-~/.codex}/fugue/metrics/`,缺失为未知,不阻塞开发。只有同任务、同模型、同提交且质量经过复核的独立对照,才计算 token 差值;无基线保持未知,负值如实记录。用法见 [计量说明](references/token-accounting.md)。
 
 边界测试与完整自检已接入 CI,复跑方法见 [evals](evals/README.md)。测试环境结果和效果实验分开记录。
 
@@ -59,19 +63,40 @@ fugue-docs 是**独立实现与独立演化**:未使用原仓库任何代码,以
 |------|------|
 | 进入陌生项目 | 逆向回环:先读 L1 → L2 → L3,再读代码 |
 | 项目没有文档结构 | 程序生成架构候选与骨架 + 自底向上补语义(真读代码,禁止编造) |
-| 任何代码增删改 | 正向回环:L3 文件头 → L2 文件夹索引 → L1 项目索引。Claude Code 钩子自动同步机器字段,只把语义缺口交给模型 |
+| 任何代码增删改 | 正向回环:L3 文件头 → L2 文件夹索引 → L1 项目索引。已启用的 Claude Code / Codex 钩子自动同步机器字段,只把语义缺口交给模型 |
 | 怀疑文档过期 | 跑 `geb_check.py`,违规清单一目了然 |
 
 ### 六个设计要点
 
 1. **同构性是可验证的,不是口号**:`geb_check.py` 分两层检查——**结构层**(默认):L1 存在性、L2 覆盖率、L3 标签齐全度、索引清单与实际文件对账(缺漏 + 幽灵条目,小项目 L1 清单按路径对账);**语义漂移层**(`--strict`,保守启发式):L1 是否提及全部顶级代码目录、L3 `[INPUT]` 是否跟上实际 import。退出码非 0 即两相不同构,可直接挂 CI;更深的语义同步由 AI 回环负责——这是明确分工,不是检查的缺口。CLAUDE.md 仅在包含 GEB 协议标识时才被认作索引,堵住"散文 CLAUDE.md 形式采纳"的漏洞。本仓库自身在 CI 中以 `--strict` 自检。
-2. **回环是硬约束,不靠模型自觉**:三层闸门按需启用——Claude Code 的 Stop 钩子(收工前自动同步并只拦语义缺口)、git pre-commit 钩(入库前拦)、CI(合并前拦)。详见下文"硬约束模式"。
+2. **回环是硬约束,不靠模型自觉**:三层闸门按需启用——Claude Code / Codex 的 Stop 钩子(收工前自动同步并只拦语义缺口)、git pre-commit 钩(入库前拦)、CI(合并前拦)。详见下文"硬约束模式"。
 3. **机器相全程自动化,语义相才需要智能**:初始化时 `geb_arch` 先生成入口/模块角色/依赖边/风险提示的候选事实包,脚手架再静态生成骨架(语义留 `TODO`);维护期 `geb_sync` 把 `[INPUT]` 行与清单表当作**视图**从代码重新生成,`--changed` 能识别删除/重命名的受影响目录——衍生数据不靠手抄、不搞对账,减少机器字段漂移,解析覆盖仍需通过测试验证。机器绝不假装理解语义。
 4. **层数随复杂度伸缩,不是教条**:协议的不变量是"每个语义边界有可定位索引、索引声明覆盖、实体可反链、机器可验证、成本比例",L1/L2/L3 只是默认 profile——小项目(≤20 文件)自动降为 L1+L3 两层(清单并入 L1);**递归分形**向上扩展:子目录含 `PROJECT_INDEX.md` 即子项目(它的 L1 就是父级视角的 L2),检查与同步自动递归——monorepo 原生支持。生成文件、配置、vendored 依赖不加头。
 5. **自底向上初始化**:L3 来自真读代码,L2 是 L3 的汇总,L1 是 L2 的汇总——每一层都有事实依据,杜绝凭文件名编造的假文档(假文档比没有文档更糟)。
 6. **透明可审计**:每次任务结束附一行 `GEB 回环:L3 ✓ | L2 ✓ | L1 —`;沙箱禁止执行脚本时按检查器逻辑人工对账并如实声明。
 
 ## 安装
+
+### Codex
+
+从本仓库目录运行,将路径替换为目标项目:
+
+```bash
+python3 scripts/geb_install_codex.py --project /path/to/project --hooks --dry-run
+python3 scripts/geb_install_codex.py --project /path/to/project --hooks
+```
+
+项目技能安装到 `.agents/skills/fugue-docs`,`--hooks` 将原生配置写入项目 `.codex/hooks.json`。个人安装用 `--user --hooks`,其配置位于 `${CODEX_HOME:-~/.codex}/hooks.json`;`--dest /path/to/skills/fugue-docs --hooks` 还须提供 `--hooks-dir <配置目录>`。项目与个人 hooks 会累加,同一项目只选一处注册。linked worktree 需显式 `--hooks-dir` 指定实际配置来源。
+
+重新打开项目或开始新会话,确认技能列表中有 `fugue-docs`,在 Codex 的 **Hooks need review** 或 `/hooks` 中审查并信任命令。安装器不会预填信任或设置 bypass,也不改 `config.toml`。首次初始化可用 `$fugue-docs 为当前项目初始化索引`;安装本身不会初始化。已有索引且钩子正常启用时,日常开发自动维护,模型只需响应语义提示,项目测试仍照常执行。
+
+省略 `--hooks` 保持默认的技能安装,按[手动流程](references/manual-workflow.md)同步和检查。手动 `--changed` 包含仓库全部未提交改动,须先预览并保留他人的编辑。原生钩子自动计量缺少日志或身份不符时保持 unknown/未知,不反复 `doctor`、不提权、不阻塞开发。`FUGUE_DATA_DIR` 可覆盖钩子数据目录。
+
+更新加 `--update`,先 `--dry-run` 预览;安装器保留其他 hooks,拒绝覆盖被本地修改的受管文件/条目。只复制白名单技能文件,不带 Claude 的 `.claude-plugin/` 或 `hooks/`,不注册 pre-commit 或 CI。完整命令与环境限制见 [Codex 接入说明](references/codex.md)。
+
+不使用原生技能时,可运行 `python3 scripts/geb_adapt.py /path/to/project --tool codex --copy-tools`,先加 `--dry-run` 预览。它将协议写入已有 `AGENTS.override.md`,否则写入 `AGENTS.md`,并复制项目内脚本。完整说明见 [references/codex.md](references/codex.md)。
+
+### Claude Code
 
 方式一,插件市场(推荐,在 Claude Code 里两行命令):
 
@@ -91,7 +116,7 @@ cp -r fugue-docs ~/.claude/skills/fugue-docs
 
 ## 使用方法
 
-装好后**无需记任何命令**——这是 skill 形态与命令行工具的本质区别:
+以下 `/fugue-docs` 调用适用于 Claude Code;Codex 显式调用使用 `$fugue-docs`,已启用并信任原生钩子时日常维护自动执行,否则使用手动流程:
 
 - **自动触发**:在任何项目里让 Claude 新增/修改/删除/重命名代码,它会自动执行协议(改完代码即回环更新 L3→L2→L1);要求"初始化文档"、"梳理项目结构"、"文档和代码对不上了"等也会自动触发。
 - **手动调用 `/fugue-docs`**:这不是系统内置命令——Claude Code 会给每个已安装的 skill 自动生成同名斜杠命令。想明确指定走协议时输入 `/fugue-docs` 加上你的要求即可,例如 `/fugue-docs 给这个项目建索引`。
@@ -106,6 +131,7 @@ cp -r fugue-docs ~/.claude/skills/fugue-docs
 | `python3 scripts/geb_staged.py <项目目录> --strict --complete` | 在临时目录检查实际暂存内容,不改变工作区 |
 | `python3 scripts/geb_metrics.py start <项目目录> --task <标识>` | 开始实际 token 计量;`finish <run_id>` 收尾,`report` 汇总 |
 | `python3 scripts/geb_adapt.py <项目目录> --tool …` | 把协议接入其他 AI 工具(见下节) |
+| `python3 scripts/geb_install_codex.py --project <项目目录> --hooks` | 安装 Codex 技能与原生钩子;`--user` 个人安装,`--dry-run` 预览,`--update` 更新 |
 
 ## 万模通用(任何工具、任何模型)
 
@@ -121,7 +147,7 @@ python3 scripts/geb_adapt.py /path/to/project --tool all --lang en --ci
 | 工具 / 模型 | 接入方式 | 命令 |
 |------------|---------|------|
 | Claude Code | skill 自动触发(最佳体验) | `/plugin install fugue-docs@fugue-docs` |
-| OpenAI Codex CLI | `AGENTS.md` | `--tool codex` |
+| OpenAI Codex | 原生技能或项目 `AGENTS.override.md` / `AGENTS.md` | `geb_install_codex.py --project …` 或 `--tool codex --copy-tools` |
 | Cursor | `.cursorrules` | `--tool cursor` |
 | Windsurf | `.windsurfrules` | `--tool windsurf` |
 | Cline / Roo Code(可接 DeepSeek 等任意模型) | `.clinerules` | `--tool cline` |
@@ -146,10 +172,16 @@ fugue-docs/
 ├── scripts/geb_scaffold.py        # 确定性脚手架(静态分析生成骨架)
 ├── scripts/geb_sync.py            # 机器字段同步器([INPUT]、清单、依赖图视图化)
 ├── scripts/geb_adapt.py           # 通用适配器:注入任意工具规则文件 + 装硬约束
+├── scripts/geb_install_codex.py   # Codex 技能与可选原生 hooks 安装器
+├── scripts/geb_codex_hook.py      # Codex 事件适配:归属跟踪、自动同步、语义回灌
+├── scripts/geb_codex_metering.py  # Codex 原生钩子的本地会话计量
+├── scripts/geb_codex_config.py    # 原生 hooks 配置的受管合并与冲突检查
 ├── scripts/geb_hook.py            # Claude Code 钩子:会话基线、自动同步、语义缺口提示、对话记录计量
 ├── scripts/geb_stop_hook.py       # 旧版 Stop 钩子:全量检查,有违规就不许收工
 ├── hooks/hooks.json               # 插件自带的钩子登记(SessionStart / Stop / SessionEnd)
-├── references/manual-workflow.md  # 没有钩子的工具(Codex 等)的手动维护流程
+├── references/manual-workflow.md  # Codex 等工具的显式同步与检查流程
+├── references/codex.md            # Codex 安装、显式调用与环境说明
+├── references/codex-hooks.md      # Codex 原生事件、维护边界与协议来源
 ├── scripts/git-pre-commit-hook.sh # git 提交钩:跨工具硬约束
 ├── .claude-plugin/                # 插件市场分发清单
 └── evals/evals.json               # 测试用例与断言(可复跑)
