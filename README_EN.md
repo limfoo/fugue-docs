@@ -14,7 +14,7 @@
 
 A toolkit that turns the *GEB Fractal Documentation Protocol* into an everyday way of working with AI: a three-level fractal index (L1 project / L2 folder / L3 file header) plus a mandatory update loop and machine-verifiable isomorphism — built to fight project entropy in the age of AI-assisted coding, where code grows messy and docs always lag behind.
 
-Claude Code and Codex both support automatic maintenance through native hooks; Codex also supports a standalone skill and project rules. The same protocol works with Cursor, Windsurf, Cline, Copilot and web chat. See [Works with any tool, any model](#works-with-any-tool-any-model) for each integration and optional commit checks.
+Claude Code, Codex and Devin support automatic maintenance through native hooks; Codex and Devin also support standalone skills and project rules. The same protocol works with Cursor, Windsurf, Cline, Copilot and web chat. See [Works with any tool, any model](#works-with-any-tool-any-model) for each integration and optional commit checks.
 
 ## Native Codex hooks: automatic maintenance, model-written semantics
 
@@ -94,6 +94,17 @@ Add `--update` for updates and preview with `--dry-run`. The installer preserves
 
 Without a native skill, run `python3 scripts/geb_adapt.py /path/to/project --tool codex --copy-tools --lang en`, first adding `--dry-run`. This injects rules into an existing `AGENTS.override.md`, otherwise `AGENTS.md`, and copies scripts into the project. See [references/codex.md](references/codex.md) for details.
 
+### Devin
+
+Install the Devin skill and optionally register native hooks from this repository:
+
+```bash
+python3 scripts/geb_install_devin.py --project /path/to/project --hooks --dry-run
+python3 scripts/geb_install_devin.py --project /path/to/project --hooks
+```
+
+The project skill goes in `.agents/skills/fugue-docs`; project hooks go in `.devin/hooks.v1.json`. Use `--user` for a skill at `~/.config/devin/skills/fugue-docs` and hooks in `~/.config/devin/config.json`. Without `--hooks`, only the skill is installed. Confirm activation with CLI `/hooks`; loading project hooks in Devin Cloud is unverified, and usage is always recorded as unknown. See the [Devin guide](references/devin.md) for events and limitations.
+
 ### Claude Code
 
 Option 1 — plugin marketplace (recommended, two commands inside Claude Code):
@@ -125,6 +136,7 @@ The `/fugue-docs` invocation below applies to Claude Code. Codex uses `$fugue-do
 | `python3 scripts/geb_scaffold.py <project>` | Deterministic scaffolder; `--dry-run` to preview |
 | `python3 scripts/geb_adapt.py <project> --tool …` | Plug the protocol into other AI tools (next section) |
 | `python3 scripts/geb_install_codex.py --project <project> --hooks` | Install the Codex skill and native hooks; `--user` for personal scope, `--dry-run` to preview, `--update` to update |
+| `python3 scripts/geb_install_devin.py --project <project> --hooks` | Install the Devin skill and native hooks; `--user` for personal scope, `--dry-run` to preview, `--update` to update |
 
 ## Works with any tool, any model
 
@@ -141,6 +153,7 @@ It modifies the target project's rule files, `.git/hooks/`, and `.github/workflo
 |--------------|------------|---------|
 | Claude Code | skill, auto-triggered (best experience) | `/plugin install fugue-docs@fugue-docs` |
 | OpenAI Codex | Native skill or project `AGENTS.override.md` / `AGENTS.md` | `geb_install_codex.py --project …` or `--tool codex --copy-tools` |
+| Devin | Native skill and optional hooks, or project `AGENTS.md` | `geb_install_devin.py --project … --hooks` or `--tool devin` |
 | Cursor | `.cursorrules` | `--tool cursor` |
 | Windsurf | `.windsurfrules` | `--tool windsurf` |
 | Cline / Roo Code (DeepSeek or any model) | `.clinerules` | `--tool cline` |
@@ -165,14 +178,18 @@ fugue-docs/
 ├── scripts/geb_adapt.py           # Universal adapter: inject rules into any tool + install constraints
 ├── scripts/geb_install_codex.py   # Codex skill and optional native hook installer
 ├── scripts/geb_codex_hook.py      # Codex events: attribution, automatic sync, semantic prompts
+├── scripts/geb_install_devin.py   # Devin skill and optional native hook installer
+├── scripts/geb_devin_hook.py      # Devin events: attribution, automatic sync, semantic prompts
 ├── scripts/geb_codex_metering.py  # Local session metering for native Codex hooks
 ├── scripts/geb_codex_config.py    # Managed hook configuration merging and conflict checks
 ├── scripts/geb_hook.py            # Claude Code hooks: session baseline, auto sync, semantic-gap prompts, transcript metering
+├── adapters/DEVIN*.md             # Devin execution conventions (zh/en)
 ├── scripts/geb_stop_hook.py       # Legacy Stop hook: whole-project check, blocks on any violation
 ├── hooks/hooks.json               # Hook registration shipped with the plugin
 ├── references/manual-workflow.md  # Explicit sync and checks for Codex and other tools
 ├── references/codex.md            # Codex installation, invocation and environment notes
 ├── references/codex-hooks.md      # Native Codex events, maintenance boundaries and protocol sources
+├── references/devin.md            # Devin installation, events, unknowns and maintenance boundaries
 ├── scripts/git-pre-commit-hook.sh # git pre-commit hook: tool-agnostic hard constraint
 ├── .claude-plugin/                # marketplace distribution manifests
 └── evals/evals.json               # Test cases & assertions (replayable)

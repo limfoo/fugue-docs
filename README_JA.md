@@ -14,7 +14,7 @@
 
 「GEB フラクタル・ドキュメント・プロトコル」を AI コーディングの日常的な作法に変えるツールキットです。三層フラクタル索引(L1 プロジェクト / L2 フォルダ / L3 ファイルヘッダ)+ 強制ループ更新 + 機械検証可能な同型性により、AI 支援開発時代のプロジェクト・エントロピー——コードは散らかり、ドキュメントは常に遅れる——に対抗します。
 
-Claude Code と Codex はネイティブフックで自動保守できます。Codex には単独スキルとプロジェクト規則による接続もあります。同じプロトコルは Cursor、Windsurf、Cline、Copilot、Web チャットでも利用できます。各ツールの接続方法と任意のコミット検査は「あらゆるツール・モデルで使える」を参照してください。
+Claude Code、Codex、Devin はネイティブフックで自動保守できます。Codex と Devin には単独スキルとプロジェクト規則による接続もあります。同じプロトコルは Cursor、Windsurf、Cline、Copilot、Web チャットでも利用できます。各ツールの接続方法と任意のコミット検査は「あらゆるツール・モデルで使える」を参照してください。
 
 ## Codex ネイティブフック:自動保守と意味の補完
 
@@ -94,6 +94,17 @@ python3 scripts/geb_install_codex.py --project /path/to/project --hooks
 
 ネイティブスキルを使わない場合は `python3 scripts/geb_adapt.py /path/to/project --tool codex --copy-tools` を使い、先に `--dry-run` を付けて確認します。既存の `AGENTS.override.md`、なければ `AGENTS.md` に規則を挿入し、プロジェクト内にスクリプトをコピーします。詳しくは [references/codex.md](references/codex.md) を参照してください。
 
+### Devin
+
+本リポジトリのディレクトリから Devin skill と任意のネイティブ hooks を配置します:
+
+```bash
+python3 scripts/geb_install_devin.py --project /path/to/project --hooks --dry-run
+python3 scripts/geb_install_devin.py --project /path/to/project --hooks
+```
+
+プロジェクト skill は `.agents/skills/fugue-docs`、hooks は `.devin/hooks.v1.json` に配置します。個人用は `--user` を使い、skill は `~/.config/devin/skills/fugue-docs`、hooks は `~/.config/devin/config.json` に置きます。`--hooks` を省略すると skill のみです。CLI の `/hooks` で読み込みを確認してください。Devin Cloud がプロジェクト hooks を読み込むかは未検証で、使用量は常に unknown/不明です。イベントと制限は [Devin ガイド](references/devin.md)を参照してください。
+
 ### Claude Code
 
 方法 1:プラグイン・マーケットプレイス(推奨、Claude Code 内で 2 行):
@@ -125,6 +136,7 @@ cp -r fugue-docs ~/.claude/skills/fugue-docs
 | `python3 scripts/geb_scaffold.py <プロジェクト>` | 決定論的スキャフォールド。`--dry-run` でプレビュー |
 | `python3 scripts/geb_adapt.py <プロジェクト> --tool …` | 他の AI ツールへプロトコルを接続(次節) |
 | `python3 scripts/geb_install_codex.py --project <プロジェクト> --hooks` | Codex スキルとフック配置。`--user` 個人用、`--dry-run` プレビュー、`--update` 更新 |
+| `python3 scripts/geb_install_devin.py --project <プロジェクト> --hooks` | Devin スキルとネイティブ hooks 配置。`--user` 個人用、`--dry-run` プレビュー、`--update` 更新 |
 
 ## あらゆるツール・モデルで使える
 
@@ -141,6 +153,7 @@ python3 scripts/geb_adapt.py /path/to/project --tool all --lang en --ci
 |----------------|---------|---------|
 | Claude Code | スキル自動トリガ(最良の体験) | `/plugin install fugue-docs@fugue-docs` |
 | OpenAI Codex | ネイティブスキル、または `AGENTS.override.md` / `AGENTS.md` | `geb_install_codex.py --project …` または `--tool codex --copy-tools` |
+| Devin | ネイティブスキルと任意 hooks、またはプロジェクト `AGENTS.md` | `geb_install_devin.py --project … --hooks` または `--tool devin` |
 | Cursor | `.cursorrules` | `--tool cursor` |
 | Windsurf | `.windsurfrules` | `--tool windsurf` |
 | Cline / Roo Code(DeepSeek など任意のモデル) | `.clinerules` | `--tool cline` |
@@ -165,13 +178,17 @@ fugue-docs/
 ├── scripts/geb_adapt.py           # 汎用アダプタ:任意ツールへ注入 + ハード制約導入
 ├── scripts/geb_install_codex.py   # Codex スキルと任意のネイティブフック配置
 ├── scripts/geb_codex_hook.py      # Codex イベント:帰属追跡、自動同期、意味の通知
+├── scripts/geb_install_devin.py   # Devin スキルと任意のネイティブ hooks 配置
+├── scripts/geb_devin_hook.py      # Devin イベント:帰属追跡、自動同期、意味の通知
 ├── scripts/geb_codex_metering.py  # Codex ネイティブフックのローカル計量
 ├── scripts/geb_codex_config.py    # フック設定の管理対象マージと競合確認
 ├── scripts/geb_hook.py            # Claude Code フック:セッション基準、自動同期、意味の欠落の指示、会話記録の計量
+├── adapters/DEVIN*.md             # Devin 実行規約(中/英)
 ├── scripts/geb_stop_hook.py       # 旧版 Stop フック:全体検査、違反があれば終了不可
 ├── hooks/hooks.json               # プラグイン同梱のフック登録
 ├── references/manual-workflow.md  # Codex などの明示的な同期・検査手順
 ├── references/codex.md            # Codex の配置、呼び出し、環境の説明
+├── references/devin.md            # Devin の配置、イベント、未検証項目と保守の境界
 ├── references/codex-hooks.md      # Codex イベント、保守の境界、プロトコル参照元
 ├── scripts/git-pre-commit-hook.sh # git pre-commit フック:ツール非依存のハード制約
 ├── .claude-plugin/                # マーケットプレイス配布マニフェスト

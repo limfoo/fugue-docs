@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 [INPUT]: 依赖 argparse, os, re, shutil, stat, subprocess, sys
-[OUTPUT]: 提供一键适配命令——把 GEB 协议注入各 AI 工具的有效规则文件,为 Codex 补充工具定位与显式回环,并可安装 pre-commit / CI 硬约束
-[POS]: fugue-docs 工具层-通用性适配器(让 Codex/Cursor/Cline/Copilot/任意模型用户一条命令接入)
+[OUTPUT]: 提供一键适配命令——把 GEB 协议注入各 AI 工具的有效规则文件,为 Codex/Devin 补充工具定位与显式回环,并可安装 pre-commit / CI 硬约束
+[POS]: fugue-docs 工具层-通用性适配器(让 Codex/Devin/Cursor/Cline/Copilot/任意模型用户一条命令接入)
 [PROTOCOL]: 变更时更新此头部,然后检查 SKILL.md 与 README 中对本脚本的描述
 
 设计:adapters/PROTOCOL.md 是协议的单一事实来源,本脚本只做"注入与装订"。
@@ -10,7 +10,7 @@
 规则文件里用户自己的其他内容。
 
 用法示例:
-  python3 geb_adapt.py /path/to/project --tool cursor codex
+  python3 geb_adapt.py /path/to/project --tool cursor codex devin
   python3 geb_adapt.py /path/to/project --tool all --lang en
   python3 geb_adapt.py /path/to/project --pre-commit --ci
 """
@@ -32,6 +32,7 @@ END = "<!-- GEB-PROTOCOL END -->"
 # 工具名 → 规则文件相对路径
 TOOLS = {
     "codex": "AGENTS.md",                            # Codex;已有有效 override 时优先更新它
+    "devin": "AGENTS.md",                            # Devin;不支持 AGENTS.override.md
     "cursor": ".cursorrules",                        # Cursor
     "windsurf": ".windsurfrules",                    # Windsurf
     "cline": ".clinerules",                          # Cline / Roo Code(可接 DeepSeek 等任意模型)
@@ -75,15 +76,17 @@ def load_protocol(lang, compact=False, tool=None):
     path = os.path.join(ADAPTERS_DIR, name)
     with open(path, encoding="utf-8", errors="replace") as f:
         protocol = f.read().strip()
-    if tool == "codex":
-        name = "CODEX%s.md" % ("" if lang == "zh" else "_EN")
-        with open(os.path.join(ADAPTERS_DIR, name), encoding="utf-8") as f:
-            protocol += "\n\n" + f.read().strip()
+    selected = [tool] if isinstance(tool, str) else list(tool or ())
+    for host in ("codex", "devin"):
+        if host in selected:
+            name = "%s%s.md" % (host.upper(), "" if lang == "zh" else "_EN")
+            with open(os.path.join(ADAPTERS_DIR, name), encoding="utf-8") as f:
+                protocol += "\n\n" + f.read().strip()
     return protocol
 
 
 def rule_path(root, tool):
-    """Codex 在同一层优先选择 AGENTS.override.md(即使为空),不能写入被遮蔽的文件。"""
+    """Codex 优先选择 override; Devin 始终写 AGENTS.md。"""
     if tool == "codex":
         override = os.path.join(root, "AGENTS.override.md")
         if os.path.isfile(override):
@@ -252,13 +255,18 @@ def main():
     print()
 
     if tools:
+        grouped = {}
         for t in tools:
-            protocol = load_protocol(args.lang, compact=args.compact, tool=t)
-            rel = targets[t]
+            grouped.setdefault(targets[t], []).append(t)
+        for rel, group in grouped.items():
+            protocol = load_protocol(args.lang, compact=args.compact, tool=group)
             action = inject(os.path.join(root, rel), protocol)
-            print("[%s] %s %s" % (t, action, rel))
-            if t == "codex":
-                print("    Codex:保留更深层 AGENTS.md / AGENTS.override.md 的作用域;未安装会话钩子。")
+            print("[%s] %s %s" % (", ".join(group), action, rel))
+            for t in group:
+                if t == "codex":
+                    print("    Codex:保留更深层 AGENTS.md / AGENTS.override.md 的作用域;未安装会话钩子。")
+                elif t == "devin":
+                    print("    Devin:AGENTS.md 适配不自动注册原生 hooks。")
         if "generic" in tools:
             print("    generic:把 GEB_PROTOCOL.md 内容粘贴为系统提示词即可用于任意聊天模型")
     if args.copy_tools and not args.ci:

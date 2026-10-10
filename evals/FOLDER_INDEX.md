@@ -12,13 +12,16 @@
 | grade_comprehension.py | 理解成本评分器:按 rubric 给 docs-only/code-only 答案打分,计算分数比与 token 比 | WS, DEFAULT_SPEC, read_json(), normalize(), answer_map(), has_any(), has_all(), point_passed(), grade_question(), grade_run(), condition_key(), compare_runs(), load_runs(), main() |
 | grade_iteration.py | 自动评分器:对每个运行目录逐断言打分,生成 grading.json | WS, GEB_CHECK, INDEX_NAMES, L3_TAGS, read(), head_lines(), first_docstring(), find_index(), run_geb_check(), run_app(), expectation(), grade_eval0(), grade_eval1(), grade_eval2(), GRADERS, main() |
 | run-first-round.sh | 首轮试点安全入口:默认无模型校验并展示计划,显式执行时才调用 Codex、保持预算并离线汇总定位结果 | — |
-| run_regression_suite.py | 确定性回归测试套件:多轮验证架构候选、增量同步、路径级检查、适配器复制、理解评分与仓库自检 | WS, ROOT, run(), fail(), ok(), require(), copy_fixture(), test_arch_fixture_b(), test_sync_changed_delete(), test_check_l1_path_ghost(), test_adapt_copy_tools(), test_comprehension_grader(), test_self_checks(), TESTS, run_round(), git_commit(), source_digest(), run_boundaries(), main() |
+| run_regression_suite.py | 确定性回归测试套件:多轮验证架构候选、增量同步、路径级检查、适配器复制、理解评分与仓库自检;自动发现 `test_*.py` | WS, ROOT, run(), fail(), ok(), require(), copy_fixture(), test_arch_fixture_b(), test_sync_changed_delete(), test_check_l1_path_ghost(), test_adapt_copy_tools(), test_comprehension_grader(), test_self_checks(), TESTS, run_round(), git_commit(), source_digest(), run_boundaries(), main() |
 | run_token_pilot.py | 配对块 token 试点:无索引/仅索引/完整赋格三组或 A/A 噪声设计,隐藏验收与参考补丁校验,主指标为未缓存输入+输出;保留失败、不自动声称节省 | ROOT, DEFAULT_TASKS_FILE, ARMS, DESIGNS, PRIMARY_METRIC, COST_KEYS, HEADER_LINE, EMPTY_BLOCK, INDEX_FILE_NAMES, BASE_PROMPT, PLAIN_PROMPT, design(), load_tasks(), archive_hashes(), leaked(), SKILL_PATHS, skill_archive(), build_schedule(), is_excluded(), strip_indexes(), drop_empty_blocks(), count_index_files(), git_environment(), prepare_workspace(), protected_snapshot(), expand(), validate(), cli_usage(), partial_usage(), usage_value(), token_metrics(), sum_known(), budget_tokens(), failure_aware(), summarize_trials(), run_codex(), kill_group(), build_prompt(), trial(), run_trial(), verify_tasks(), parse_weights(), main() |
 | test_boundaries.py | 同步写盘、路径、依赖、有向环、暂存区与评分负对照 | ROOT, header(), BoundaryTests |
 | test_codex_adapt.py | Codex 规则适配回归:override 优先级、原有规则和行尾保留、预演零写入、路径保护与配套工具独立运行 | ROOT, ADAPT, CodexAdapterTests |
 | test_codex_hooks.py | Codex hook 回归:补丁归属、异步命令、Stop 自动回环与提示去重、未采纳项目静默和双宿主隔离 | HOOK, EVENTS, CodexHookTests |
 | test_codex_install.py | Codex 安装回归:技能分发与自举、hooks 合并保留、更新冲突保护、多目标写入回滚和 worktree 范围 | ROOT, MANIFEST, PAYLOAD, RUN_INSTALLER, CodexInstallTests |
 | test_codex_metering.py | Codex hook 计量回归:真实区间、会话身份、首次启动/恢复、未知数据与防重复累计 | ROOT, CodexMeteringTests |
+| test_devin_adapt.py | Devin 规则适配回归:AGENTS.md 目标、简短约定、紧凑模式与 Codex/Devin 单块合并 | ROOT, ADAPT, DevinAdapterTests |
+| test_devin_hooks.py | Devin hook 回归:payload 归一化、文件/补丁/exec 归属、Stop 语义缺口、未采用静默与未知用量 | HOOK, EVENTS, DevinHookTests |
+| test_devin_install.py | Devin 安装回归:项目/用户安装、受管 hooks 合并、命令可移植、幂等、预演与 malformed JSON 拒绝 | ROOT, INSTALLER, DevinInstallTests |
 | test_first_round.py | 不调用模型的启动入口测试:默认计划、失败阻断、显式执行、参数保持与输出防覆盖 | SCRIPT, FAKE_PYTHON, FirstRoundTests |
 | test_hooks.py | 钩子回归:按工具调用归属、静默放行、新文件骨架、缺口只提示一次、切分支/提交/用户与其他会话的改动不归入、链接/冲突/编码/生成代码保护、阈值迁移、改名、对话记录计量 | ROOT, HOOK, GIT_ENV, L1, APP, CORE, HEADER, usage_line(), HookCase, MaintenanceTests, AttributionTests, MeteringTests, PluginTests |
 | test_metrics.py | token 用量、缺失值、重置、对照证据与重复计量回归 | MetricsTests |

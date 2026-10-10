@@ -14,7 +14,7 @@
 
 一个把「GEB 分形文档协议」变成 AI 编程日常工作方式的工具集:三级分形索引(L1 项目 / L2 文件夹 / L3 文件头)+ 程序化架构候选 + 强制回环检查 + 机器可验证的同构性,用来对抗 AI 辅助开发时代的项目熵增——代码越写越乱、文档永远滞后。
 
-Claude Code 和 Codex 都可通过原生钩子自动维护,Codex 还支持独立技能与项目规则接入;同一协议也可用于 Cursor、Windsurf、Cline、Copilot 和网页聊天。各工具的接入方式与可选提交检查见[「万模通用」](#万模通用任何工具任何模型)一节。
+Claude Code、Codex 和 Devin 都可通过原生钩子自动维护,Codex 与 Devin 还支持独立技能与项目规则接入;同一协议也可用于 Cursor、Windsurf、Cline、Copilot 和网页聊天。各工具的接入方式与可选提交检查见[「万模通用」](#万模通用任何工具任何模型)一节。
 
 ## Codex 原生钩子:自动维护,模型只补语义
 
@@ -96,6 +96,17 @@ python3 scripts/geb_install_codex.py --project /path/to/project --hooks
 
 不使用原生技能时,可运行 `python3 scripts/geb_adapt.py /path/to/project --tool codex --copy-tools`,先加 `--dry-run` 预览。它将协议写入已有 `AGENTS.override.md`,否则写入 `AGENTS.md`,并复制项目内脚本。完整说明见 [references/codex.md](references/codex.md)。
 
+### Devin
+
+从本仓库目录显式安装 Devin skill 与原生 hooks:
+
+```bash
+python3 scripts/geb_install_devin.py --project /path/to/project --hooks --dry-run
+python3 scripts/geb_install_devin.py --project /path/to/project --hooks
+```
+
+项目 skill 位于 `.agents/skills/fugue-docs`,项目 hooks 写入 `.devin/hooks.v1.json`;个人安装使用 `--user`,技能与 hooks 分别位于 `~/.config/devin/skills/fugue-docs` 和 `~/.config/devin/config.json`。不加 `--hooks` 时仅安装技能。安装后在 CLI `/hooks` 确认加载;Devin Cloud 是否加载项目 hooks 尚未验证,且用量始终记录为未知。完整事件与边界见 [Devin 接入说明](references/devin.md)。
+
 ### Claude Code
 
 方式一,插件市场(推荐,在 Claude Code 里两行命令):
@@ -132,6 +143,7 @@ cp -r fugue-docs ~/.claude/skills/fugue-docs
 | `python3 scripts/geb_metrics.py start <项目目录> --task <标识>` | 开始实际 token 计量;`finish <run_id>` 收尾,`report` 汇总 |
 | `python3 scripts/geb_adapt.py <项目目录> --tool …` | 把协议接入其他 AI 工具(见下节) |
 | `python3 scripts/geb_install_codex.py --project <项目目录> --hooks` | 安装 Codex 技能与原生钩子;`--user` 个人安装,`--dry-run` 预览,`--update` 更新 |
+| `python3 scripts/geb_install_devin.py --project <项目目录> --hooks` | 安装 Devin 技能与原生 hooks;`--user` 个人安装,`--dry-run` 预览,`--update` 更新 |
 
 ## 万模通用(任何工具、任何模型)
 
@@ -148,6 +160,7 @@ python3 scripts/geb_adapt.py /path/to/project --tool all --lang en --ci
 |------------|---------|------|
 | Claude Code | skill 自动触发(最佳体验) | `/plugin install fugue-docs@fugue-docs` |
 | OpenAI Codex | 原生技能或项目 `AGENTS.override.md` / `AGENTS.md` | `geb_install_codex.py --project …` 或 `--tool codex --copy-tools` |
+| Devin | 原生 skill 与可选 hooks,或项目 `AGENTS.md` | `geb_install_devin.py --project … --hooks` 或 `--tool devin` |
 | Cursor | `.cursorrules` | `--tool cursor` |
 | Windsurf | `.windsurfrules` | `--tool windsurf` |
 | Cline / Roo Code(可接 DeepSeek 等任意模型) | `.clinerules` | `--tool cline` |
@@ -174,14 +187,18 @@ fugue-docs/
 ├── scripts/geb_adapt.py           # 通用适配器:注入任意工具规则文件 + 装硬约束
 ├── scripts/geb_install_codex.py   # Codex 技能与可选原生 hooks 安装器
 ├── scripts/geb_codex_hook.py      # Codex 事件适配:归属跟踪、自动同步、语义回灌
+├── scripts/geb_install_devin.py   # Devin 技能与可选原生 hooks 安装器
+├── scripts/geb_devin_hook.py      # Devin 事件适配:工具归属、自动同步、语义回灌
 ├── scripts/geb_codex_metering.py  # Codex 原生钩子的本地会话计量
 ├── scripts/geb_codex_config.py    # 原生 hooks 配置的受管合并与冲突检查
 ├── scripts/geb_hook.py            # Claude Code 钩子:会话基线、自动同步、语义缺口提示、对话记录计量
+├── adapters/DEVIN*.md             # Devin 执行约定(中/英)
 ├── scripts/geb_stop_hook.py       # 旧版 Stop 钩子:全量检查,有违规就不许收工
 ├── hooks/hooks.json               # 插件自带的钩子登记(SessionStart / Stop / SessionEnd)
 ├── references/manual-workflow.md  # Codex 等工具的显式同步与检查流程
 ├── references/codex.md            # Codex 安装、显式调用与环境说明
 ├── references/codex-hooks.md      # Codex 原生事件、维护边界与协议来源
+├── references/devin.md            # Devin 安装、事件、未知项与维护边界
 ├── scripts/git-pre-commit-hook.sh # git 提交钩:跨工具硬约束
 ├── .claude-plugin/                # 插件市场分发清单
 └── evals/evals.json               # 测试用例与断言(可复跑)

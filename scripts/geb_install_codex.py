@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 [INPUT]: 依赖 argparse, geb_codex_config, hashlib, json, os, pathlib, stat, subprocess, sys, tempfile
-[OUTPUT]: 显式安装 Codex skill 与可选原生 hooks;支持无写入预览、受管更新、冲突预检与失败回滚
+[OUTPUT]: 显式安装 Codex skill 与可选原生 hooks;共享白名单、清单参数化、安全更新、预检与事务回滚供宿主安装器复用
 [POS]: fugue-docs 工具层-Codex 原生 standalone skill 分发入口
-[PROTOCOL]: 变更时更新此头部,然后检查上级 FOLDER_INDEX.md 与 Codex 安装文档
+[PROTOCOL]: 变更时更新此头部,检查 scripts/FOLDER_INDEX.md、Codex 安装文档与复用该事务的宿主安装说明
 """
 
 import argparse
@@ -85,8 +85,8 @@ def hashes(files):
     return {name: hashlib.sha256(data).hexdigest() for name, (data, _) in files.items()}
 
 
-def read_manifest(destination):
-    path = destination / MANIFEST
+def read_manifest(destination, manifest_name=MANIFEST):
+    path = destination / manifest_name
     reject_symlinks(path)
     if not path.is_file():
         raise InstallError("Existing destination is not managed by this installer: %s" % destination)
@@ -107,7 +107,7 @@ def read_manifest(destination):
     return files
 
 
-def installation_plan(source, destination, files, update):
+def installation_plan(source, destination, files, update, manifest_name=MANIFEST):
     """Check every potential conflict before making any filesystem changes."""
     reject_symlinks(destination)
     if destination == source:
@@ -123,7 +123,7 @@ def installation_plan(source, destination, files, update):
         return "install", {}, expected
     if not destination.is_dir():
         raise InstallError("Destination is not a directory: %s" % destination)
-    previous = read_manifest(destination)
+    previous = read_manifest(destination, manifest_name)
     for name, digest in previous.items():
         path = destination / name
         reject_symlinks(path)
@@ -235,9 +235,9 @@ def project_hooks_directory(project):
     return project / ".codex"
 
 
-def install(source, destination, update=False, dry_run=False, hooks_directory=None):
+def install(source, destination, update=False, dry_run=False, hooks_directory=None, manifest_name=MANIFEST):
     files = source_files(source)
-    action, previous, expected = installation_plan(source, destination, files, update)
+    action, previous, expected = installation_plan(source, destination, files, update, manifest_name)
     hook_changes = {}
     if hooks_directory is not None:
         if "scripts/" + RUNTIME not in files:
@@ -262,7 +262,7 @@ def install(source, destination, update=False, dry_run=False, hooks_directory=No
                 changes[destination / name] = (data, mode)
         for name in sorted(previous.keys() - expected.keys()):
             changes[destination / name] = None
-        changes[destination / MANIFEST] = (manifest, 0o644)
+        changes[destination / manifest_name] = (manifest, 0o644)
     changes.update(hook_changes)
     # Dry runs perform the same filesystem/permission checks without mkdir or writes.
     for path in changes:
