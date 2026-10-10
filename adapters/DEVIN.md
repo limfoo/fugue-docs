@@ -9,4 +9,4 @@
 2. 编辑后预览 `python3 "<tools-dir>/geb_sync.py" "<root>" --changed --dry-run`;核对范围后再执行同步,混有他人改动时只手动维护本任务文件。
 3. 补全语义字段并运行 `python3 "<tools-dir>/geb_check.py" "<root>" --strict --complete --report` 与相关测试。
 
-Devin hooks 没有公开会话 transcript/用量;账本中的 usage 保持未知,不执行 Codex 或 Claude 计量流程。后台 exec 在 PostToolUse 到达前写入的文件可能无法归属本会话。
+Devin hooks 没有公开会话 transcript/用量;账本中的 usage 保持未知,不执行 Codex 或 Claude 计量流程。后台 exec 在 PostToolUse 之后才写入的文件可能无法归属本会话。

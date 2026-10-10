@@ -9,4 +9,4 @@ Without confirmed hooks, use the manual loop:
 2. After editing, preview `python3 "<tools-dir>/geb_sync.py" "<root>" --changed --dry-run`; verify scope before syncing. If changes are mixed with others', maintain only this task's files manually.
 3. Complete semantic fields and run `python3 "<tools-dir>/geb_check.py" "<root>" --strict --complete --report` plus relevant tests.
 
-Devin hooks expose no public transcript or usage data, so ledger usage remains unknown; do not use Codex or Claude metering. Files written by backgrounded exec before PostToolUse may not be attributed to this session.
+Devin hooks expose no public transcript or usage data, so ledger usage remains unknown; do not use Codex or Claude metering. Files written by backgrounded exec after PostToolUse may not be attributed to this session.
