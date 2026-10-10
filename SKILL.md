@@ -1,6 +1,6 @@
 ---
 name: fugue-docs
-description: Maintain PROJECT_INDEX.md / FOLDER_INDEX.md / file-header indexes for coding agents. Use when the user requests Fugue indexes or mentions 赋格, GEB, PROJECT_INDEX, or FOLDER_INDEX. With enabled and trusted Fugue hooks in Codex or Claude Code, routine maintenance and local usage recording run automatically; use this skill for initialization, semantic gaps requested by a hook, or index questions. Without those hooks, also use when editing code in adopted projects to manually sync and check the task's changes. Missing telemetry never blocks development.
+description: Maintain PROJECT_INDEX.md / FOLDER_INDEX.md / file-header indexes for coding agents. Use when the user requests Fugue indexes or mentions 赋格, GEB, PROJECT_INDEX, or FOLDER_INDEX. With enabled and trusted Fugue hooks in Codex, Devin, or Claude Code, routine maintenance runs automatically; use this skill for initialization, semantic gaps requested by a hook, or index questions. Without those hooks, also use when editing code in adopted projects to manually sync and check the task's changes. Missing telemetry never blocks development.
 ---
 
 # 赋格文档
@@ -13,9 +13,10 @@ L1 `PROJECT_INDEX.md` 是项目入口,L2 `FOLDER_INDEX.md` 是模块清单,L3 �
 
 ## 维护
 
-- **Codex + 已启用并信任的原生钩子 / Claude Code + 插件钩子**:改完代码无需为日常维护运行同步、检查或计量脚本。每轮结束时,钩子只处理本会话归属的未提交改动,补新文件头部骨架、同步依赖与清单、记录可用遥测。出现语义缺口时会收到以“赋格:”开头的提示并继续执行,按提示每项补一句;提示以外的内容不要顺带改写。项目本身的测试仍按任务需要运行。
+- **Codex / Devin + 已启用并信任的原生钩子 / Claude Code + 插件钩子**:改完代码无需为日常维护运行同步、检查或计量脚本。每轮结束时,钩子只处理本会话归属的未提交改动,补新文件头部骨架、同步依赖与清单、记录可用遥测。出现语义缺口时会收到以“赋格:”开头的提示并继续执行,按提示每项补一句;提示以外的内容不要顺带改写。项目本身的测试仍按任务需要运行。
 - **未启用或未信任钩子**:按 [references/manual-workflow.md](references/manual-workflow.md) 手动同步、检查。`--changed` 包含整个仓库的未提交改动,先预览范围,保留用户和其他代理的编辑。不要仅因技能文件存在就假定钩子已启用。
 - **Codex 接入**:使用 `$fugue-docs` 显式初始化或咨询;`geb_install_codex.py --hooks` 安装原生钩子,由 Codex 自身完成信任审查。安装、环境要求见 [references/codex.md](references/codex.md),事件与维护边界见 [references/codex-hooks.md](references/codex-hooks.md)。未采用协议的项目不自动初始化。
+- **Devin 接入**:`geb_install_devin.py --hooks` 显式安装原生钩子;用 CLI `/hooks` 确认已加载。未确认时按 [references/manual-workflow.md](references/manual-workflow.md) 手动维护。Devin 没有公开用量数据,账本保持未知;宿主限制见 [references/devin.md](references/devin.md)。
 
 ## 初始化(项目还没有索引)
 

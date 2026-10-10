@@ -4,7 +4,7 @@ This repository provides the fugue-docs skill and deterministic GEB documentatio
 
 ## Changes
 
-- Keep the shared GEB protocol in `adapters/PROTOCOL.md` and its English/compact counterparts consistent. Codex-specific execution guidance belongs in `adapters/CODEX.md` and `adapters/CODEX_EN.md`; skill guidance lives in `SKILL.md` and `references/`.
+- Keep the shared GEB protocol in `adapters/PROTOCOL.md` and its English/compact counterparts consistent. Codex and Devin execution guidance belongs in `adapters/CODEX*.md` and `adapters/DEVIN*.md`; Devin support is implemented in `scripts/geb_devin_hook.py` and `scripts/geb_install_devin.py`, with host limits in `references/devin.md`.
 - `scripts/geb_install_codex.py` installs a standalone skill; explicit `--hooks` also merges native Codex hook configuration. Keep `.claude-plugin/` and Claude hook registration out of that package. Preserve both Claude Code and Codex workflows, and never bypass Codex's hook trust review.
 - Preserve unrelated working-tree changes. `geb_sync.py --changed` covers all dirty files, including other agents' work: inspect its dry run before writing. Update L3 headers, affected L2 entries, and L1 when structure changes. New source files need all four L3 tags.
 - Keep installation paths portable and quoted. Do not hard-code a developer's home directory, change global Codex/Git configuration, or install hooks as a side effect of ordinary development.
