@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 [INPUT]: 依赖 argparse, hashlib, io, json, os, pathlib, posixpath, random, re, shlex, shutil, signal, statistics, subprocess, sys, tarfile, tempfile, time, geb_telemetry, geb_check, geb_adapt, analyze_navigation
-[OUTPUT]: 提供 Codex/Claude Code 三组/两组/A-A 设计的配对块 token 试点、外部源码准备、无模型任务校验、成本口径与定位指标汇总
+[OUTPUT]: 提供 Codex/Claude Code 三组/两组/A-A 设计的配对块 token 试点、按完整源码身份缓存的外部源码准备、无模型任务校验、成本口径与定位指标汇总
 [POS]: fugue-docs 评测包-受限 token 试点执行器;分离索引收益与流程开销(含钩子化流程),不宣称普遍节省
 [PROTOCOL]: 改设计、任务格式或汇总口径时更新 token-pilot.md、test_token_pilot.py 并保留失败运行
 """
@@ -214,11 +214,20 @@ def extract(tar, destination, members):
 def materialize_source(source, cache):
     """按任务文件声明准备外部源码:固定提交的子目录 + 索引覆盖补丁,做成本地 git 仓库并复用。"""
     overlay = source.get("overlay")
-    overlay_digest = hashlib.sha256(Path(overlay).read_bytes()).hexdigest()[:12] if overlay else "none"
+    identity = {k: source.get(k) for k in ("git", "commit", "subdir", "tree")}
+    identity["overlay_sha256"] = hashlib.sha256(Path(overlay).read_bytes()).hexdigest() if overlay else None
+    digest = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    metadata = dict(identity, name=source.get("name"))
     target = Path(cache).expanduser().resolve() / ("%s-%s-%s" % (
-        re.sub(r"[^A-Za-z0-9]+", "-", source.get("name", "source")).strip("-"), source["commit"][:12], overlay_digest))
+        re.sub(r"[^A-Za-z0-9]+", "-", source.get("name", "source")).strip("-"), source["commit"][:12], digest))
     marker = target / ".fugue-source.json"
     if marker.is_file():
+        try:
+            cached_metadata = json.loads(marker.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise ValueError("cannot read cached source metadata: %s" % marker) from error
+        if cached_metadata != metadata:
+            raise ValueError("cached source metadata does not match the requested source: %s" % marker)
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
     # 暂存目录与缓存同盘,最后的 os.replace 不会跨设备
@@ -250,8 +259,7 @@ def materialize_source(source, cache):
             subprocess.run(["git", "add", "-A"], cwd=repo, env=env, check=True)
             subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-qm", "fugue indexes"],
                            cwd=repo, env=env, check=True)
-        (repo / ".fugue-source.json").write_text(json.dumps({k: source.get(k) for k in (
-            "name", "git", "commit", "subdir", "tree")}, indent=1) + "\n", encoding="utf-8")
+        (repo / ".fugue-source.json").write_text(json.dumps(metadata, indent=1) + "\n", encoding="utf-8")
         # 标记文件不进入归档:写在提交之后,且加入本地排除
         with (repo / ".git" / "info" / "exclude").open("a") as f:
             f.write(".fugue-source.json\n")

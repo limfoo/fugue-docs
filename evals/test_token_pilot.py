@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 [INPUT]: 依赖 io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile, types, unittest, unittest.mock, run_token_pilot
-[OUTPUT]: 提供试点配对块、三组/A-A 汇总、成本口径、索引剥离、失败保留、外部源码、Claude 用量与隔离、假 Codex/Claude 端到端回归
+[OUTPUT]: 提供试点配对块、三组/A-A 汇总、成本口径、索引剥离、失败保留、外部源码缓存身份、Claude 用量与隔离、假 Codex/Claude 端到端回归
 [POS]: fugue-docs 评测包-实验设计与汇总可信度检查;不调用模型
 [PROTOCOL]: 修改设计、汇总、剥离或 token 口径时同步本测试
 """
@@ -607,6 +607,57 @@ class SelfTestTests(unittest.TestCase):
 
 
 class SourceTests(unittest.TestCase):
+    def make_local_source(self, root):
+        repo = root / "upstream"
+        for name in ("package-a", "package-b"):
+            package = repo / name
+            package.mkdir(parents=True)
+            (package / "value.txt").write_text(name + "\n", encoding="utf-8")
+        env = pilot.git_environment(dict(os.environ))
+        for command in (["git", "-c", "init.templateDir=", "init", "-q"], ["git", "add", "-A"],
+                        ["git", "-c", "commit.gpgsign=false", "commit", "-qm", "local source"]):
+            subprocess.run(command, cwd=repo, env=env, check=True, capture_output=True)
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, env=env, text=True).strip()
+        tree = subprocess.check_output(["git", "rev-parse", "HEAD:package-a"], cwd=repo,
+                                       env=env, text=True).strip()
+        return {"name": "monorepo", "git": str(repo), "commit": commit, "subdir": "package-a", "tree": tree}
+
+    def test_source_cache_separates_subdirectories_and_reuses_exact_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.make_local_source(root)
+            first = pilot.materialize_source(source, root / "cache")
+            tree = subprocess.check_output(["git", "rev-parse", "HEAD:package-b"], cwd=source["git"],
+                                           text=True).strip()
+            second = pilot.materialize_source(dict(source, subdir="package-b", tree=tree), root / "cache")
+            self.assertNotEqual(first, second)
+            self.assertEqual("package-a\n", (first / "value.txt").read_text(encoding="utf-8"))
+            self.assertEqual("package-b\n", (second / "value.txt").read_text(encoding="utf-8"))
+            with patch.object(pilot.subprocess, "run", side_effect=AssertionError("cache hit must not fetch")):
+                self.assertEqual(first, pilot.materialize_source(source, root / "cache"))
+
+    def test_cached_source_does_not_bypass_a_changed_tree_pin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.make_local_source(root)
+            pilot.materialize_source(source, root / "cache")
+            with self.assertRaisesRegex(ValueError, "does not match the pinned"):
+                pilot.materialize_source(dict(source, tree="0" * 40), root / "cache")
+
+    def test_source_cache_refuses_invalid_or_mismatched_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.make_local_source(root)
+            cached = pilot.materialize_source(source, root / "cache")
+            marker = cached / ".fugue-source.json"
+            for content, message in (("{", "cannot read cached source metadata"),
+                                     ("{}", "cached source metadata does not match")):
+                with self.subTest(content=content):
+                    marker.write_text(content, encoding="utf-8")
+                    with patch.object(pilot.subprocess, "run", side_effect=AssertionError("must not fetch")):
+                        with self.assertRaisesRegex(ValueError, message):
+                            pilot.materialize_source(source, root / "cache")
+
     def test_glob_matching_is_path_aware(self):
         paths = ["test/test_a.py", "test/sub/test_b.py", "test/data/x.rst", "src/test/y.py"]
         self.assertEqual(["test/sub/test_b.py", "test/test_a.py"], pilot.matching(paths, ["test/**/*.py"]))

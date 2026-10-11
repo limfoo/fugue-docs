@@ -95,7 +95,7 @@ python3 -B evals/run_token_pilot.py --verify-tasks
 
 `{python}` 会替换为当前解释器;`acceptance_files`、`acceptance_patch`、`reference_patch` 和 `overlay` 的路径相对任务文件解析。源提交里必须已有索引文件,否则执行器拒绝运行,因为这里测的是已有索引的热启动场景。
 
-任务文件声明 `source` 且没有给 `--source-repo` 时,执行器在 `--source-cache`(默认 `~/.cache/fugue-pilot/sources`)里浅拉取固定提交,取出子目录,核对树哈希,提交一次"上游原样",再打上索引覆盖补丁提交一次;之后复用缓存。归档里树内的相对符号链接保留,指向树外的链接、硬链接和设备文件一律拒绝。
+任务文件声明 `source` 且没有给 `--source-repo` 时,执行器在 `--source-cache`(默认 `~/.cache/fugue-pilot/sources`)里浅拉取固定提交,取出子目录,核对树哈希,提交一次"上游原样",再打上索引覆盖补丁提交一次;之后复用缓存。缓存按仓库地址、完整提交、子目录、树哈希及覆盖补丁内容隔离,复用前核对来源标记,避免不同子目录共用测试源码。归档里树内的相对符号链接保留,指向树外的链接、硬链接和设备文件一律拒绝。
 
 ## Claude Code 与 docutils
 
