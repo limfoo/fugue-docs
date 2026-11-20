@@ -31,6 +31,7 @@ END = "<!-- GEB-PROTOCOL END -->"
 
 # 工具名 → 规则文件相对路径
 TOOLS = {
+    "antigravity": "GEMINI.md",                      # Antigravity (CLI / IDE / 2.0)
     "codex": "AGENTS.md",                            # Codex;已有有效 override 时优先更新它
     "devin": "AGENTS.md",                            # Devin;不支持 AGENTS.override.md
     "cursor": ".cursorrules",                        # Cursor
@@ -77,7 +78,7 @@ def load_protocol(lang, compact=False, tool=None):
     with open(path, encoding="utf-8", errors="replace") as f:
         protocol = f.read().strip()
     selected = [tool] if isinstance(tool, str) else list(tool or ())
-    for host in ("codex", "devin"):
+    for host in ("antigravity", "codex", "devin"):
         if host in selected:
             name = "%s%s.md" % (host.upper(), "" if lang == "zh" else "_EN")
             with open(os.path.join(ADAPTERS_DIR, name), encoding="utf-8") as f:

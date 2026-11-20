@@ -59,6 +59,9 @@ NAVIGATION_HINT = ("本项目使用赋格索引:先读 PROJECT_INDEX.md,再读�
 
 def data_dir():
     # 固定位置便于用户查账,插件升级或卸载也不会带走账本
+    if os.environ.get("FUGUE_HOOK_AGENT") == "antigravity":
+        return os.environ.get("FUGUE_DATA_DIR") or os.path.join(
+            os.path.expanduser("~"), ".gemini", "fugue")
     if os.environ.get("FUGUE_HOOK_AGENT") == "codex":
         return os.environ.get("FUGUE_DATA_DIR") or os.path.join(
             os.environ.get("CODEX_HOME") or os.path.join(os.path.expanduser("~"), ".codex"), "fugue")
@@ -145,7 +148,10 @@ def git(root, *args):
 
 def project_root(payload):
     """会话目录;若它没有 L1 而所在 git 仓库根目录有,就用仓库根目录。规范化真实路径。"""
-    if payload.get("fugue_agent") == "codex":
+    if payload.get("fugue_agent") == "antigravity":
+        workspaces = payload.get("workspace_paths") or []
+        project_dir = payload.get("cwd") or (workspaces[0] if workspaces else None)
+    elif payload.get("fugue_agent") == "codex":
         project_dir = None
     elif payload.get("fugue_agent") == "devin":
         project_dir = os.environ.get("DEVIN_PROJECT_DIR")
@@ -175,8 +181,9 @@ def inside(root, rel):
         current = os.path.join(current, part)
         if os.path.islink(current):
             return False
-    real = os.path.realpath(os.path.join(root, rel))
-    return real.startswith(root.rstrip(os.sep) + os.sep)
+    real = os.path.normcase(os.path.realpath(os.path.join(root, rel)))
+    root_norm = os.path.normcase(os.path.realpath(root).rstrip(os.sep) + os.sep)
+    return real.startswith(root_norm)
 
 
 def read_strict(path):
@@ -289,7 +296,10 @@ def tool_rel(root, payload, path):
     base = payload.get("cwd") or root
     full = os.path.normpath(os.path.join(base, os.path.expanduser(str(path))))
     full = os.path.join(os.path.realpath(os.path.dirname(full)), os.path.basename(full))
-    rel = norm(os.path.relpath(full, root))
+    try:
+        rel = norm(os.path.relpath(full, root))
+    except ValueError:
+        return None
     return None if rel == "." or rel.startswith("../") else rel
 
 
@@ -838,6 +848,23 @@ def record_metering(state, payload, event):
         except Exception as error:  # 计量失败不能吞掉已经生成的语义缺口提示
             log_error("codex-metering", error)
         return
+    if state.get("fugue_agent") == "antigravity":
+        session_id = state.get("fugue_session_id") or state["session_id"]
+        run_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "fugue-antigravity-session:" + session_id))
+        path = os.path.join(data_dir(), "metrics", run_id + ".json")
+        record = read_json(path) or {
+            "schema": "geb.metrics.v2", "run_id": run_id, "agent": "antigravity",
+            "task": "antigravity-session", "condition": "fugue", "root": state["root"],
+            "started_at": state["started_at"], "git": state.get("git_state"),
+            "saved_tokens": None, "saving_status": "no_comparable_baseline", "source": None,
+            "coverage": "Antigravity hooks expose no token usage telemetry; usage is unavailable"}
+        record.update(session_id=session_id, status="telemetry_unavailable", usage=None,
+                      updated_at=now(), last_event=event,
+                      coverage_start=state.get("coverage_start", "session_start"),
+                      maintenance={k: state.get(k, 0) for k in ("stops", "blocks", "block_chars", "auto_writes",
+                                                                "skipped_turns")})
+        write_json(path, record)
+        return
     if state.get("fugue_agent") == "devin":
         session_id = state.get("fugue_session_id") or state["session_id"]
         run_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "fugue-devin-session:" + session_id))
@@ -882,9 +909,12 @@ def record_metering(state, payload, event):
 def new_state(session_id, root, payload, coverage_start="session_start"):
     codex = payload.get("fugue_agent") == "codex"
     devin = payload.get("fugue_agent") == "devin"
-    totals, _reason = (None, "codex" if codex else "devin") if codex or devin else transcript_usage(
-        payload.get("transcript_path"))
-    if not codex and not devin and totals is None and coverage_start == "session_start" and payload.get("source") in (None, "startup", "clear"):
+    agy = payload.get("fugue_agent") == "antigravity"
+    totals, _reason = (
+        (None, payload.get("fugue_agent")) if (codex or devin or agy)
+        else transcript_usage(payload.get("transcript_path"))
+    )
+    if not (codex or devin or agy) and totals is None and coverage_start == "session_start" and payload.get("source") in (None, "startup", "clear"):
         totals = {field: 0 for field in USAGE_FIELDS}
         totals["messages"] = 0
     head = current_head(root)
@@ -903,6 +933,8 @@ def new_state(session_id, root, payload, coverage_start="session_start"):
             log_error("codex-metering-start", error)
     elif devin:
         state.update(fugue_agent="devin", fugue_session_id=payload.get("fugue_session_id"))
+    elif agy:
+        state.update(fugue_agent="antigravity", fugue_session_id=payload.get("fugue_session_id"))
     return state
 
 

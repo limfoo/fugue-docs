@@ -17,6 +17,7 @@ fugue-docs/
 ├── agents/            # Codex 技能展示与隐式调用策略
 ├── assets/            # logo 等静态资源
 ├── hooks/             # Claude Code 插件钩子登记(无代码)
+├── skills/            # Antigravity 原生插件技能入口(skills/fugue-docs/SKILL.md)
 ├── evals/             # 评测包:用例、夹具、评分器、Codex/Claude Code 三组试点(含外部仓库 docutils)与安全启动入口 → evals/FOLDER_INDEX.md
 ├── references/        # 模板、Codex/Devin 安装与钩子协议、显式维护与计量说明
 └── scripts/           # 全部可执行工具 → scripts/FOLDER_INDEX.md
@@ -76,6 +77,7 @@ graph TD
 | 文件 | 职责 |
 |------|------|
 | AGENTS.md | 仓库开发约定与离线验证入口 |
+| plugin.json / hooks.json | Antigravity 原生插件清单与跨平台生命周期钩子定义 |
 | SKILL.md | 协议本体,Claude Code / Codex / Devin skill 定义 |
 | README.md / README_EN.md / README_JA.md | 三语说明文档 |
 | PROJECT_INDEX.md | 本文件(L1) |

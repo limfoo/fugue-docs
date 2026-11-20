@@ -1,0 +1,37 @@
+{
+  "fugue-docs-agy": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python scripts/geb_antigravity_hook.py session-start || python3 scripts/geb_antigravity_hook.py session-start || py -3 scripts/geb_antigravity_hook.py session-start",
+        "timeout": 30
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python scripts/geb_antigravity_hook.py pre-invocation || python3 scripts/geb_antigravity_hook.py pre-invocation || py -3 scripts/geb_antigravity_hook.py pre-invocation",
+        "timeout": 30
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "write_file|edit_file|write_to_file|replace_file_content|multi_replace_file_content|run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/geb_antigravity_hook.py post-tool || python3 scripts/geb_antigravity_hook.py post-tool || py -3 scripts/geb_antigravity_hook.py post-tool",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python scripts/geb_antigravity_hook.py stop || python3 scripts/geb_antigravity_hook.py stop || py -3 scripts/geb_antigravity_hook.py stop",
+        "timeout": 60
+      }
+    ]
+  }
+}

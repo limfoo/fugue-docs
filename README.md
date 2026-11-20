@@ -87,6 +87,26 @@ fugue-docs 是**独立实现与独立演化**:未使用原仓库任何代码,以
 
 ## 安装
 
+### Antigravity (`fugue-docs-agy`, 跨平台 Windows / macOS / Linux)
+
+方式一，一行 `git clone` 极速安装（推荐，自动加载并默认启用，后续 `git pull` 一键升级）：
+
+```bash
+# macOS / Linux
+git clone -b feat/antigravity-plugin https://github.com/limfoo/fugue-docs.git ~/.gemini/config/plugins/fugue-docs-agy
+
+# Windows (PowerShell)
+git clone -b feat/antigravity-plugin https://github.com/limfoo/fugue-docs.git "$env:USERPROFILE\.gemini\config\plugins\fugue-docs-agy"
+```
+
+方式二，使用精简安装器（仅复制运行必需文件，0 warnings 通过 `agy plugin validate --strict`）：
+
+```bash
+python3 scripts/geb_install_antigravity.py --user --dry-run
+python3 scripts/geb_install_antigravity.py --user
+```
+（Windows 下将 `python3` 替换为 `python`；完整说明见 [Antigravity 接入说明](references/antigravity.md)。）
+
 ### Codex
 
 从本仓库目录运行,将路径替换为目标项目:
