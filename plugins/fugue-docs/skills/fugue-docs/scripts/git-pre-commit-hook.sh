@@ -1,0 +1,36 @@
+#!/bin/sh
+# [INPUT]: 依赖 (未检出外部依赖)
+# [OUTPUT]: git pre-commit 钩子——两相不同构时拒绝提交(跨工具硬约束,不依赖任何 AI 助手)
+# [POS]: fugue-docs 工具层-通用回环硬约束(Claude Code 之外的所有环境)
+# [PROTOCOL]: 变更时更新此头部,然后检查 README 中对本钩子的描述
+#
+# 安装(在你的项目里):
+#   python3 /path/to/fugue-docs/scripts/geb_adapt.py . --pre-commit
+# 跳过一次检查:git commit --no-verify
+
+REPO_ROOT="$(git rev-parse --show-toplevel)" || exit 0
+
+# 定位检查器:环境变量 > 本脚本同目录 > 全局安装路径
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+for candidate in "$GEB_STAGED" "$SCRIPT_DIR/geb_staged.py" \
+    "$HOME/.codex/skills/fugue-docs/scripts/geb_staged.py" \
+    "$HOME/.claude/skills/fugue-docs/scripts/geb_staged.py"; do
+    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+        GEB_CHECK_PATH="$candidate"
+        break
+    fi
+done
+
+if [ -z "$GEB_CHECK_PATH" ]; then
+    echo "fugue-docs: 找不到 geb_staged.py,请重新运行 geb_adapt.py --pre-commit" >&2
+    exit 1
+fi
+
+# 采纳判定由 geb_check --if-adopted 统一负责(单一事实源),未采纳项目零打扰
+if ! python3 "$GEB_CHECK_PATH" "$REPO_ROOT" --strict --complete; then
+    echo "" >&2
+    echo "fugue-docs: 代码与文档两相不同构,提交被拒绝。" >&2
+    echo "请完成 L3(文件头)→ L2(FOLDER_INDEX.md)→ L1(PROJECT_INDEX.md)回环后再提交。" >&2
+    echo "(确需跳过本次检查:git commit --no-verify)" >&2
+    exit 1
+fi

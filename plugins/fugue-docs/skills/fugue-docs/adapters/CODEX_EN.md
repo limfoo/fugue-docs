@@ -1,0 +1,17 @@
+## Codex workflow
+
+Respect existing project rules and more specific `AGENTS.md` / `AGENTS.override.md` files. Keep documentation changes within the task's scope. Rule injection does not register hooks; install native Codex hooks explicitly with `geb_install_codex.py --hooks`. They use `geb_codex_hook.py`, not the Claude Code `hooks/hooks.json`.
+
+**With native hooks enabled and trusted**: session start provides index navigation, tool events track this session's files, and Stop adds missing L3 headers, syncs machine fields, and returns semantic gaps to the model. Complete the fields named in the Fugue prompt; unchanged gaps are not repeatedly raised. Do not repeat the manual sync, check or metering scripts below; still run relevant project tests. Projects without the protocol are not initialized automatically. Missing or mismatched telemetry remains unknown and does not interrupt work. Skill files or hooks.json alone do not prove activation: the user must complete Codex's native Hooks need review or `/hooks` trust review on first use.
+
+**Find the tools**: prefer `scripts/` inside the loaded `$fugue-docs` skill. Otherwise check the project's `.agents/skills/fugue-docs/scripts/`, the project's `scripts/geb/`, then `~/.agents/skills/fugue-docs/scripts/`. Verify that `geb_sync.py` and `geb_check.py` exist and use their directory as `<tools-dir>` below. Quote paths, including paths with spaces. Do not assume the working directory is the skill directory or that the user's project contains this repository's `scripts/`.
+
+**Development loop without enabled hooks**:
+
+1. Inspect existing working-tree changes, then read L1 → target L2 → file headers and relevant code. Maintain existing indexes for actual changes. Read-only tasks do not initialize indexes.
+2. After editing, preview `python3 "<tools-dir>/geb_sync.py" "<root>" --changed --dry-run`; remove `--dry-run` only after checking the scope. `--changed` includes all uncommitted workspace changes, not just this session's files; non-Git projects fall back to full sync. When user or other-agent changes are mixed in, edit only task-related headers and index entries instead of running a sync that overwrites unrelated content. Add L3 headers to new files; the synchronizer does not create missing headers.
+3. Fill the changed `[OUTPUT]`, `[POS]`, and responsibility fields; update L1 for structural changes. Run `python3 "<tools-dir>/geb_check.py" "<root>" --strict --complete --report` and relevant project tests. Report remaining issues accurately.
+
+For initialization, run `geb_arch.py` and `geb_scaffold.py --dry-run` from the same tool directory, then generate scaffolding within the authorized scope, read code, and fill semantics. If tools are missing, report that fact and use an installed copy from the locations above, or follow the installation guide with `geb_adapt.py --tool codex --copy-tools`. Do not download or execute unreviewed remote scripts.
+
+**Metering**: enabled hooks automatically record available local telemetry in `${CODEX_HOME:-~/.codex}/fugue/metrics`; `FUGUE_DATA_DIR` overrides the data directory. Without hooks, use `geb_metrics.py start/finish` only when requested, local telemetry for this session is readable, and the ledger is writable. Missing cloud logs or sandbox restrictions mean unknown usage; continue the task without escalating permissions or repeated diagnostics. Unmeasured usage is not zero, and savings require a valid comparison.

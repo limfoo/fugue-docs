@@ -1,0 +1,24 @@
+{
+  "name": "fugue-docs",
+  "version": "0.1.0",
+  "description": "维护项目索引、目录清单和代码文件头",
+  "author": {
+    "name": "Fugue Docs 本地打包"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "赋格文档 · Fugue Docs",
+    "shortDescription": "维护项目索引、目录清单和代码文件头",
+    "longDescription": "用 Fugue 的三层索引定位代码。Codex 生命周期钩子跟踪本会话的文件改动，在收尾时同步索引并提示需要补写的职责说明。",
+    "developerName": "Fugue Docs 本地打包",
+    "category": "Developer Tools",
+    "logo": "./assets/logo.png",
+    "composerIcon": "./assets/logo.png",
+    "defaultPrompt": [
+      "为当前项目初始化赋格索引。",
+      "检查当前项目的赋格索引。"
+    ]
+  }
+}

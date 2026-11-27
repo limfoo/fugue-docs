@@ -1,0 +1,20 @@
+{
+  "name": "fugue-local",
+  "interface": {
+    "displayName": "Fugue 本地插件"
+  },
+  "plugins": [
+    {
+      "name": "fugue-docs",
+      "source": {
+        "source": "local",
+        "path": "./plugins/fugue-docs"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

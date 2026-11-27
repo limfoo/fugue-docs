@@ -1,0 +1,114 @@
+{
+  "hooks": {
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" interrupt",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" interrupt",
+            "timeout": 3,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" post-tool",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" post-tool",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "apply_patch|Bash|exec_command|shell|shell_command|local_shell|write_stdin"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" pre-tool",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" pre-tool",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "apply_patch|Bash|exec_command|shell|shell_command|local_shell|write_stdin"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" session-end",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" session-end",
+            "timeout": 3,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" session-start",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" session-start",
+            "timeout": 30,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" stop",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" stop",
+            "timeout": 60,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" subagent-start",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" subagent-start",
+            "timeout": 30,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" subagent-stop",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" subagent-stop",
+            "timeout": 60,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -I -X utf8 -B \"${PLUGIN_ROOT}/skills/fugue-docs/scripts/geb_codex_hook.py\" prompt",
+            "commandWindows": "python -I -X utf8 -B -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'skills/fugue-docs/scripts/geb_codex_hook.py'),run_name='__main__')\" prompt",
+            "timeout": 30,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
